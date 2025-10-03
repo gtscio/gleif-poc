@@ -1,0 +1,31 @@
+{
+  "name": "twin-service",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "tsx server.js",
+    "start:vault": "VAULT_ENABLED=true tsx server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "description": "",
+  "dependencies": {
+    "@iota/iota.js": "^1.8.6",
+    "@twin.org/identity-connector-iota": "^0.0.1",
+    "@twin.org/nft-connector-iota": "^0.0.1",
+    "@twin.org/standards-w3c-did": "^0.0.1",
+    "@twin.org/vault-connector-hashicorp": "^0.0.1",
+    "@twin.org/vault-models": "^0.0.1",
+    "@twin.org/wallet-connector-iota": "^0.0.1",
+    "@twin.org/wallet-models": "^0.0.1",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6"
+  }
+}

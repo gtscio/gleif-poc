@@ -1,0 +1,10 @@
+(node:43975) ExperimentalWarning: CommonJS module /Users/albertolive/.nvm/versions/node/v23.1.0/lib/node_modules/npm/node_modules/debug/src/node.js is loading ES Module /Users/albertolive/.nvm/versions/node/v23.1.0/lib/node_modules/npm/node_modules/supports-color/index.js using require().
+Support for loading ES Module in require() is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+🔍 VAULT_ENABLED: true
+🔍 MOCK before: undefined
+🔍 MOCK after: undefined
+Twin Service running on port 3001
+❌ Failed to create DID document: factory.noGet
+❌ Failed to create DID document: factory.noGet
+❌ Failed to create DID document: factory.noGet

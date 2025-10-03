@@ -1,0 +1,80 @@
+name: Deploy to Vercel with Credential Generation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies for did-management
+      run: cd did-management && npm install
+
+    - name: Generate new IOTA DID
+      run: cd did-management && npm start
+
+    - name: Extract DID from wallet
+      run: echo "DID=$(jq -r '.did' did-management/twin-wallet.json)" >> $GITHUB_ENV
+
+    - name: Make generate-credentials.sh executable
+      run: chmod +x did-management/generate-credentials.sh
+
+    - name: Generate KERI credentials
+      run: ./did-management/generate-credentials.sh $DID
+
+    - name: Verify credential files were created
+      run: |
+        if [ ! -f "gleif-poc/public/.well-known/keri/Edef456_placeholder_credential_said" ]; then
+          echo "Credential file not found!"
+          exit 1
+        fi
+        if [ ! -f "gleif-poc/public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid" ]; then
+          echo "ICP file not found!"
+          exit 1
+        fi
+
+    - name: Install Vercel CLI
+      run: npm install -g vercel
+
+    - name: Deploy to Vercel
+      run: cd gleif-poc && vercel --prod --yes
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    - name: Install Railway CLI
+      run: npm install -g @railway/cli
+
+    - name: Deploy to Railway
+      run: cd twin-service && railway deploy
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+    - name: Get Railway URL
+      run: |
+        cd twin-service
+        RAILWAY_URL=$(railway domain)
+        echo "RAILWAY_URL=$RAILWAY_URL" >> $GITHUB_ENV
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+    - name: Set BACKEND_URL in Vercel
+      run: |
+        cd gleif-poc
+        echo "$RAILWAY_URL" | vercel env add BACKEND_URL production
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

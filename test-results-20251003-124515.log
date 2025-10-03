@@ -1,0 +1,215 @@
+GLEIF POC E2E Test Log - Fri Oct  3 12:45:15 CEST 2025
+=================================
+2025-10-03 12:45:15 - Setting up test environment...
+2025-10-03 12:45:15 - Installing dependencies...
+
+> gleif-poc-monorepo@0.1.0 install:all
+> npm install && cd gleif-poc && npm install && cd ../twin-service && npm install && cd ../did-management && npm install
+
+(node:84789) ExperimentalWarning: CommonJS module /Users/albertolive/.nvm/versions/node/v23.1.0/lib/node_modules/npm/node_modules/debug/src/node.js is loading ES Module /Users/albertolive/.nvm/versions/node/v23.1.0/lib/node_modules/npm/node_modules/supports-color/index.js using require().
+Support for loading ES Module in require() is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+up to date, audited 631 packages in 1s
+
+162 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+(node:84808) ExperimentalWarning: CommonJS module /Users/albertolive/.nvm/versions/node/v23.1.0/lib/node_modules/npm/node_modules/debug/src/node.js is loading ES Module /Users/albertolive/.nvm/versions/node/v23.1.0/lib/node_modules/npm/node_modules/supports-color/index.js using require().
+Support for loading ES Module in require() is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+up to date, audited 631 packages in 826ms
+
+162 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+(node:84821) ExperimentalWarning: CommonJS module /Users/albertolive/.nvm/versions/node/v23.1.0/lib/node_modules/npm/node_modules/debug/src/node.js is loading ES Module /Users/albertolive/.nvm/versions/node/v23.1.0/lib/node_modules/npm/node_modules/supports-color/index.js using require().
+Support for loading ES Module in require() is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+up to date, audited 631 packages in 862ms
+
+162 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+(node:84829) ExperimentalWarning: CommonJS module /Users/albertolive/.nvm/versions/node/v23.1.0/lib/node_modules/npm/node_modules/debug/src/node.js is loading ES Module /Users/albertolive/.nvm/versions/node/v23.1.0/lib/node_modules/npm/node_modules/supports-color/index.js using require().
+Support for loading ES Module in require() is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+up to date, audited 631 packages in 1s
+
+162 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+2025-10-03 12:45:20 - TEST: Environment Setup - PASS
+2025-10-03 12:45:20 - DETAILS: All prerequisites met and dependencies installed
+2025-10-03 12:45:20 - Starting HashiCorp Vault...
+e098607fd79b2f1c0cc67b3b557ce5622750720a723f900d1b23bb2dfb9bd105
+2025-10-03 12:45:24 - Waiting for Vault to be ready at http://localhost:8200/v1/sys/health...
+2025-10-03 12:45:32 - Vault is ready!
+2025-10-03 12:45:32 - TEST: Vault Startup - PASS
+2025-10-03 12:45:32 - DETAILS: Vault started successfully on port 8200
+2025-10-03 12:45:32 - Starting Twin Service...
+2025-10-03 12:45:32 - Waiting for Twin Service to be ready at http://localhost:3001/create-did...
+
+> twin-service@1.0.0 start:vault
+> VAULT_ENABLED=true tsx server.js
+
+Twin Service running on port 3001
+2025-10-03 12:45:34 - Twin Service is ready!
+2025-10-03 12:45:34 - TEST: Twin Service Startup - PASS
+2025-10-03 12:45:34 - DETAILS: Twin Service started successfully on port 3001
+2025-10-03 12:45:34 - Starting GLEIF POC Frontend...
+2025-10-03 12:45:34 - Waiting for GLEIF POC Frontend to be ready at http://localhost:3000...
+
+> gleif-poc@0.1.0 dev
+> next dev --turbopack
+
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/albertolive/Repos/iota/gleif-poc/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/albertolive/Repos/iota/gleif-poc/gleif-poc/package-lock.json
+
+   ▲ Next.js 15.5.4 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.1.145:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 839ms
+ ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+ ⚠ See instructions if you need to configure Turbopack:
+  https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+
+ ○ Compiling / ...
+ ✓ Compiled / in 1770ms
+ GET / 200 in 1991ms
+2025-10-03 12:45:38 - GLEIF POC Frontend is ready!
+2025-10-03 12:45:38 - TEST: GLEIF POC Startup - PASS
+2025-10-03 12:45:38 - DETAILS: Frontend started successfully on port 3000
+2025-10-03 12:45:38 - Testing DID creation...
+2025-10-03 12:45:38 - Checking IOTA network connectivity at https://api.testnet.iota.cafe...
+2025-10-03 12:45:38 - ✅ IOTA network is accessible
+🔍 Creating real IOTA testnet DID using TWIN Identity Connector...
+❌ Failed to create DID document: factory.noGet
+2025-10-03 12:45:39 - TEST: DID Creation - FAIL
+2025-10-03 12:45:39 - DETAILS: DID creation output: 🚀 Creating a new TWIN ID...
+❌ Failed to create TWIN ID: HTTP error! status: 500
+Error: HTTP error! status: 500
+    at createIdentity (file:///Users/albertolive/Repos/iota/gleif-poc/did-management/manage-did.js:20:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async main (file:///Users/albertolive/Repos/iota/gleif-poc/did-management/manage-did.js:71:3)
+2025-10-03 12:45:39 - Testing credential generation...
+--- Starting Real Credential Generation ---
+✅ Using IOTA DID: did:iota:testnet:1759481376323g01lju9zyo
+--- Creating Placeholder Signed Credential ---
+✅ Placeholder cryptographic files created in ../gleif-poc/public/.well-known/keri
+2025-10-03 12:45:39 - TEST: Credential Generation - PASS
+2025-10-03 12:45:39 - DETAILS: KERI credential files created successfully
+2025-10-03 12:45:39 - Testing API endpoints...
+2025-10-03 12:45:39 - Checking IOTA network connectivity at https://api.testnet.iota.cafe...
+2025-10-03 12:45:39 - ✅ IOTA network is accessible
+🔍 Creating real IOTA testnet DID using TWIN Identity Connector...
+❌ Failed to create DID document: factory.noGet
+2025-10-03 12:45:39 - ❌ Twin Service /create-did endpoint failed
+2025-10-03 12:45:39 - ❌ Twin Service /resolve-did endpoint failed
+ ✓ Compiled /api/verify in 136ms
+[Verifier] Starting LIVE verification for: test
+[Verifier] Resolving TWIN ID from the DLT...
+[Verifier] Verification failed: Failed to resolve DID: Internal Server Error
+ POST /api/verify 200 in 510ms
+2025-10-03 12:45:39 - ✅ Frontend /api/verify endpoint working
+2025-10-03 12:45:39 - TEST: API Endpoints - FAIL
+2025-10-03 12:45:39 - DETAILS: 1/3 endpoints working
+2025-10-03 12:45:40 - Testing verification flow...
+[Verifier] Starting LIVE verification for: did:iota:testnet:1759481376323g01lju9zyo
+[Verifier] Resolving TWIN ID from the DLT...
+[Verifier] Verification failed: Failed to resolve DID: Internal Server Error
+ POST /api/verify 200 in 339ms
+2025-10-03 12:45:40 - TEST: Verification Flow - FAIL
+2025-10-03 12:45:40 - DETAILS: DID not verified: Could not resolve the DID from the DLT. Error: Failed to resolve DID: Internal Server Error
+2025-10-03 12:45:40 - Testing IOTA explorer links...
+[Verifier] Starting LIVE verification for: did:iota:testnet:1759481376323g01lju9zyo
+[Verifier] Resolving TWIN ID from the DLT...
+[Verifier] Verification failed: Failed to resolve DID: Internal Server Error
+ POST /api/verify 200 in 320ms
+2025-10-03 12:45:40 - TEST: Explorer Links - FAIL
+2025-10-03 12:45:40 - DETAILS: Cannot test explorer links - verification failed
+2025-10-03 12:45:40 - Testing frontend build...
+
+> gleif-poc@0.1.0 prebuild
+> node scripts/ensure-credentials.js
+
+✅ KERI credential files already exist. Skipping generation.
+
+> gleif-poc@0.1.0 build
+> npm run prebuild && next build --turbopack
+
+
+> gleif-poc@0.1.0 prebuild
+> node scripts/ensure-credentials.js
+
+✅ KERI credential files already exist. Skipping generation.
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/albertolive/Repos/iota/gleif-poc/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/albertolive/Repos/iota/gleif-poc/gleif-poc/package-lock.json
+
+   ▲ Next.js 15.5.4 (Turbopack)
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+ ⚠ See instructions if you need to configure Turbopack:
+  https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+
+ ✓ Finished writing to disk in 21ms
+ ✓ Compiled successfully in 1644ms
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/6) ...
+   Generating static pages (1/6) 
+   Generating static pages (2/6) 
+   Generating static pages (4/6) 
+ ✓ Generating static pages (6/6)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                         Size  First Load JS
+┌ ○ /                            1.86 kB         115 kB
+├ ○ /_not-found                      0 B         113 kB
+└ ƒ /api/verify                      0 B            0 B
++ First Load JS shared by all     118 kB
+  ├ chunks/52bbddf44b001337.js   21.7 kB
+  ├ chunks/ab9be13326c139ce.js   75.4 kB
+  └ other shared chunks (total)    21 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+2025-10-03 12:45:50 - TEST: Frontend Build - PASS
+2025-10-03 12:45:50 - DETAILS: Build completed successfully
+2025-10-03 12:45:50 - Generating test report...
+2025-10-03 12:45:50 - Checking IOTA network connectivity at https://api.testnet.iota.cafe...
+2025-10-03 12:45:50 - ✅ IOTA network is accessible
+2025-10-03 12:45:50 - Generating test report...
+2025-10-03 12:45:50 - Checking IOTA network connectivity at https://api.testnet.iota.cafe...
+2025-10-03 12:45:50 - ✅ IOTA network is accessible
+[?25h
+npm error Lifecycle script `start:vault` failed with error:
+npm error code 143
+npm error path /Users/albertolive/Repos/iota/gleif-poc/twin-service
+npm error workspace twin-service@1.0.0
+npm error location /Users/albertolive/Repos/iota/gleif-poc/twin-service
+npm error command failed
+npm error command sh -c VAULT_ENABLED=true tsx server.js

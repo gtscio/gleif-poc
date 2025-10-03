@@ -1,0 +1,11 @@
+{
+  "name": "did-management",
+  "version": "1.0.0",
+  "description": "DID management module",
+  "type": "module",
+  "main": "manage-did.js",
+  "scripts": {
+    "start": "node manage-did.js"
+  },
+  "dependencies": {}
+}

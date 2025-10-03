@@ -1,0 +1,39 @@
+{
+  "name": "gleif-poc-monorepo",
+  "version": "0.1.0",
+  "description": "GLEIF POC Monorepo - vLEI ↔ TWIN ID Linkage Verifier",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install && cd gleif-poc && npm install && cd ../twin-service && npm install && cd ../did-management && npm install",
+    "dev": "npm run install:all && npm run dev:vault",
+    "dev:vault": "docker run -d --name vault-dev -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=root hashicorp/vault server -dev && cd twin-service && npm run start:vault & cd gleif-poc && npm run dev",
+    "test:e2e": "./test-e2e.sh",
+    "clean": "cd gleif-poc && rm -rf .next node_modules && cd ../twin-service && rm -rf node_modules && cd ../did-management && rm -rf node_modules && rm -rf node_modules",
+    "build": "cd gleif-poc && npm run build",
+    "lint": "cd gleif-poc && npm run lint"
+  },
+  "workspaces": [
+    "gleif-poc",
+    "twin-service",
+    "did-management"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/gleif-poc.git"
+  },
+  "keywords": [
+    "gleif",
+    "vlei",
+    "iota",
+    "twin",
+    "did",
+    "blockchain",
+    "identity"
+  ],
+  "author": "GLEIF POC Team",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/your-org/gleif-poc/issues"
+  },
+  "homepage": "https://github.com/your-org/gleif-poc#readme"
+}
