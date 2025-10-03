@@ -31,7 +31,7 @@ jobs:
       run: chmod +x did-management/generate-credentials.sh
 
     - name: Generate KERI credentials
-      run: ./did-management/generate-credentials.sh $DID
+      run: cd did-management && ./generate-credentials.sh $DID
 
     - name: Verify credential files were created
       run: |
