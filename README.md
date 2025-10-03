@@ -49,7 +49,7 @@ This project serves as a foundation for future implementations of decentralized 
 
 The project is structured into four main components:
 
-### 1. GLEIF POC Frontend (`gleif-poc/`)
+### 1. GLEIF POC Frontend (`gleif-frontend/`)
 - **Framework**: Next.js 15 with React 19
 - **Purpose**: Web interface for TWIN ID verification with blockchain transparency
 - **Key Features**:
@@ -128,14 +128,14 @@ graph TD
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd gleif-poc
+cd gleif-frontend
 
 # Install dependencies for all components
 npm run install:all
 ```
 
 This command will install dependencies for:
-- Main frontend application (`gleif-poc/`)
+- Main frontend application (`gleif-frontend/`)
 - Twin service (`twin-service/`)
 - DID management scripts (`did-management/`)
 
@@ -144,7 +144,7 @@ This command will install dependencies for:
 Copy and update configuration files as needed:
 - `config.env`: IOTA network settings
 - `identity.env`: Default DID (if applicable)
-- `gleif-poc/.env.local`: Local environment variables for Next.js
+- `gleif-frontend/.env.local`: Local environment variables for Next.js
   - `IOTA_NETWORK`: IOTA network name (testnet/mainnet/devnet, defaults to testnet)
   - `IDENTITY_IOTA_EXPLORER_ENDPOINT`: IOTA explorer URL (defaults to https://explorer.iota.org)
 - `twin-service/.env`: Twin service configuration
@@ -182,7 +182,7 @@ cd twin-service && npm run start:vault
 cd ../did-management && node manage-did.js && ./generate-credentials.sh $(jq -r '.did' twin-wallet.json)
 ```
 
-This generates real KERI credentials from TWIN.org API linked to the created DID in `gleif-poc/public/.well-known/keri/`.
+This generates real KERI credentials from TWIN.org API linked to the created DID in `gleif-frontend/public/.well-known/keri/`.
 
 ### 5. Test the Setup
 
@@ -203,7 +203,7 @@ This validates the DID linkage with vLEI credentials.
 
 This project uses a **monorepo deployment strategy** with separate hosting platforms for optimal performance and scalability:
 
-- **Frontend** (`gleif-poc/`): Deployed to **Vercel** for global CDN, serverless functions, and optimal Next.js performance
+- **Frontend** (`gleif-frontend/`): Deployed to **Vercel** for global CDN, serverless functions, and optimal Next.js performance
 - **Backend** (`twin-service/`): Deployed to **Railway** for reliable containerized hosting with persistent services
 
 The deployment workflow automatically:
@@ -252,7 +252,7 @@ npm install -g vercel
 vercel login
 
 # Connect and deploy frontend
-cd gleif-poc
+cd gleif-frontend
 vercel --prod
 ```
 
@@ -287,7 +287,7 @@ railway domain
 
 Then set in Vercel:
 ```bash
-cd gleif-poc
+cd gleif-frontend
 vercel env add BACKEND_URL production
 # Enter the Railway URL when prompted
 ```
@@ -297,7 +297,7 @@ vercel env add BACKEND_URL production
 The CI/CD pipeline (`.github/workflows/deploy.yml`) handles automated dual deployments:
 
 1. **Credential Generation**: Creates fresh IOTA DIDs and KERI credentials
-2. **Frontend Deployment**: Deploys `gleif-poc/` to Vercel
+2. **Frontend Deployment**: Deploys `gleif-frontend/` to Vercel
 3. **Backend Deployment**: Deploys `twin-service/` to Railway
 4. **Service Discovery**: Retrieves Railway service URL
 5. **Environment Configuration**: Sets `BACKEND_URL` in Vercel to Railway URL
@@ -310,7 +310,7 @@ For testing frontend changes against production backend:
 
 ```bash
 # Set local environment to use deployed backend
-cd gleif-poc
+cd gleif-frontend
 echo "BACKEND_URL=https://your-railway-service.up.railway.app" > .env.local
 
 # Start frontend only
@@ -343,7 +343,7 @@ railway deploy
 RAILWAY_URL=$(railway domain)
 
 # Deploy frontend with new backend URL
-cd ../gleif-poc
+cd ../gleif-frontend
 echo "$RAILWAY_URL" | vercel env add BACKEND_URL production --force
 vercel --prod --yes
 ```
@@ -433,10 +433,10 @@ hcp auth login
 hcp vault create my-gleif-vault \
   --hvn-id hvn-abc123 \
   --tier standard \
-  --cluster-id gleif-poc-vault
+  --cluster-id gleif-frontend-vault
 
 # Get cluster details
-hcp vault describe gleif-poc-vault
+hcp vault describe gleif-frontend-vault
 ```
 
 2. **Configure Vault Authentication**
@@ -465,7 +465,7 @@ vault write auth/approle/role/twin-service \
 ```bash
 # Production environment configuration
 VAULT_ENABLED=true
-VAULT_ENDPOINT=https://gleif-poc-vault.vault.abc123.hcp.zone:8200
+VAULT_ENDPOINT=https://gleif-frontend-vault.vault.abc123.hcp.zone:8200
 VAULT_TOKEN=<approle-token>
 VAULT_NAMESPACE=  # Leave empty for HCP
 VAULT_ROLE_ID=<role-id>
@@ -480,7 +480,7 @@ cd twin-service
 
 # Set Railway environment variables
 railway variables set VAULT_ENABLED=true
-railway variables set VAULT_ENDPOINT=https://gleif-poc-vault.vault.abc123.hcp.zone:8200
+railway variables set VAULT_ENDPOINT=https://gleif-frontend-vault.vault.abc123.hcp.zone:8200
 railway variables set VAULT_ROLE_ID=<role-id>
 railway variables set VAULT_SECRET_ID=<secret-id>
 railway variables set NETWORK=mainnet
@@ -1120,7 +1120,7 @@ curl -X POST http://localhost:3001/create-did
 #### Test Scenario 3: Production Deployment Test
 ```bash
 # 1. Test build process
-cd gleif-poc
+cd gleif-frontend
 npm run build
 
 # 2. Verify credential files exist
@@ -1407,7 +1407,7 @@ cd did-management
 **Solution**:
 ```bash
 # Clear Next.js cache
-cd gleif-poc
+cd gleif-frontend
 rm -rf .next
 
 # Check for TypeScript errors
@@ -1585,7 +1585,7 @@ chmod +x generate-credentials.sh
 ./generate-credentials.sh $(jq -r '.did' twin-wallet.json)
 
 # Verify files exist
-ls -la ../gleif-poc/public/.well-known/keri/
+ls -la ../gleif-frontend/public/.well-known/keri/
 ```
 
 #### 4. DID Resolution Fails
@@ -1600,7 +1600,7 @@ ls -la ../gleif-poc/public/.well-known/keri/
 **Solution**:
 ```bash
 # Clear Next.js cache
-cd gleif-poc
+cd gleif-frontend
 rm -rf .next
 
 # Reinstall dependencies
@@ -1624,7 +1624,7 @@ npm run lint
 ps aux | grep -E "(node|npm)"
 
 # View application logs
-cd gleif-poc && npm run dev 2>&1 | tee dev.log
+cd gleif-frontend && npm run dev 2>&1 | tee dev.log
 
 # Check Vault status
 docker logs vault-dev

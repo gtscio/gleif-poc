@@ -230,7 +230,7 @@ start_twin_service() {
 start_gleif_poc() {
     log "Starting GLEIF POC Frontend..."
 
-    cd "$PROJECT_ROOT/gleif-poc"
+    cd "$PROJECT_ROOT/gleif-frontend"
 
     # Start frontend in background
     npm run dev >> "$LOG_FILE" 2>&1 &
@@ -309,8 +309,8 @@ test_credential_generation() {
             ./generate-credentials.sh "$did" >> "$LOG_FILE" 2>&1 || error_exit "Credential generation failed"
 
             # Check if credential files were created
-            if [ -f "../gleif-poc/public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid" ] && \
-               [ -f "../gleif-poc/public/.well-known/keri/Edef456_placeholder_credential_said" ]; then
+            if [ -f "../gleif-frontend/public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid" ] && \
+               [ -f "../gleif-frontend/public/.well-known/keri/Edef456_placeholder_credential_said" ]; then
                 test_result "Credential Generation" "PASS" "KERI credential files created successfully"
             else
                 test_result "Credential Generation" "FAIL" "Credential files not found"
@@ -490,7 +490,7 @@ test_explorer_links() {
 test_frontend_build() {
     log "Testing frontend build..."
 
-    cd "$PROJECT_ROOT/gleif-poc"
+    cd "$PROJECT_ROOT/gleif-frontend"
 
     # Test build process
     if npm run build >> "$LOG_FILE" 2>&1; then
@@ -549,8 +549,8 @@ generate_report() {
 
 ### DID Management
 - $([ -f "did-management/twin-wallet.json" ] && echo "✅" || echo "❌") DID wallet available
-- $([ -f "gleif-poc/public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid" ] && echo "✅" || echo "❌") KERI credentials generated
-- $([ -f "gleif-poc/public/.well-known/keri/Edef456_placeholder_credential_said" ] && echo "✅" || echo "❌") Credential files present
+- $([ -f "gleif-frontend/public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid" ] && echo "✅" || echo "❌") KERI credentials generated
+- $([ -f "gleif-frontend/public/.well-known/keri/Edef456_placeholder_credential_said" ] && echo "✅" || echo "❌") Credential files present
 
 ### API Testing
 - ✅ Twin Service endpoints responding

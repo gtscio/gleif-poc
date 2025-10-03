@@ -35,11 +35,11 @@ jobs:
 
     - name: Verify credential files were created
       run: |
-        if [ ! -f "gleif-poc/public/.well-known/keri/Edef456_placeholder_credential_said" ]; then
+        if [ ! -f "gleif-frontend/public/.well-known/keri/Edef456_placeholder_credential_said" ]; then
           echo "Credential file not found!"
           exit 1
         fi
-        if [ ! -f "gleif-poc/public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid" ]; then
+        if [ ! -f "gleif-frontend/public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid" ]; then
           echo "ICP file not found!"
           exit 1
         fi
@@ -48,7 +48,7 @@ jobs:
       run: npm install -g vercel
 
     - name: Deploy to Vercel
-      run: cd gleif-poc && vercel --prod --yes
+      run: cd gleif-frontend && vercel --prod --yes
       env:
         VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -72,7 +72,7 @@ jobs:
 
     - name: Set BACKEND_URL in Vercel
       run: |
-        cd gleif-poc
+        cd gleif-frontend
         echo "$RAILWAY_URL" | vercel env add BACKEND_URL production
       env:
         VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

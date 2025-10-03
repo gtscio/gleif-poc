@@ -6,7 +6,7 @@ This comprehensive testing guide covers the complete end-to-end workflow for the
 
 ### System Components
 
-1. **GLEIF POC Frontend** (`gleif-poc/`): Next.js web application for user interaction
+1. **GLEIF POC Frontend** (`gleif-frontend/`): Next.js web application for user interaction
 2. **Twin Service** (`twin-service/`): Backend service for DID and NFT operations
 3. **DID Management** (`did-management/`): Scripts for identity creation and credential generation
 4. **Twin Webinar Demo** (`twin-webinar2-demo/`): Demo environment with sample data
@@ -28,7 +28,7 @@ This comprehensive testing guide covers the complete end-to-end workflow for the
 - [ ] Configure environment files:
   - [ ] `config.env` - IOTA network settings
   - [ ] `identity.env` - Default DID (optional)
-  - [ ] `gleif-poc/.env.local` - Frontend environment
+  - [ ] `gleif-frontend/.env.local` - Frontend environment
   - [ ] `twin-service/.env` - Backend configuration
 
 ### ✅ Checklist: Vault Setup (Production-like Testing)
@@ -66,7 +66,7 @@ npm run start:vault
 
 **Start Frontend:**
 ```bash
-cd gleif-poc
+cd gleif-frontend
 npm run dev
 ```
 
@@ -132,15 +132,15 @@ chmod +x generate-credentials.sh
 ```
 
 **Expected Results:**
-- Files created in `gleif-poc/public/.well-known/keri/`:
+- Files created in `gleif-frontend/public/.well-known/keri/`:
   - `icp/Eabc123_placeholder_legal_entity_aid`
   - `Edef456_placeholder_credential_said`
 - Console output: "✅ Placeholder cryptographic files created"
 
 **Verify Credential Files:**
 ```bash
-ls -la ../gleif-poc/public/.well-known/keri/
-cat ../gleif-poc/public/.well-known/keri/Edef456_placeholder_credential_said
+ls -la ../gleif-frontend/public/.well-known/keri/
+cat ../gleif-frontend/public/.well-known/keri/Edef456_placeholder_credential_said
 ```
 
 ---
@@ -151,7 +151,7 @@ cat ../gleif-poc/public/.well-known/keri/Edef456_placeholder_credential_said
 
 **Test build-time credential generation:**
 ```bash
-cd gleif-poc
+cd gleif-frontend
 npm run build
 ```
 
@@ -376,7 +376,7 @@ curl -X POST http://localhost:3000/api/verify \
 3. **Expected:** Vault connection error
 
 **Test Frontend Build Issues:**
-1. Delete KERI files: `rm -rf gleif-poc/public/.well-known/keri/`
+1. Delete KERI files: `rm -rf gleif-frontend/public/.well-known/keri/`
 2. Attempt frontend build: `npm run build`
 3. **Expected:** Build fails with missing credential files
 
@@ -487,7 +487,7 @@ curl http://localhost:8200/v1/sys/health
 **Build Failures:**
 ```bash
 # Clear Next.js cache
-cd gleif-poc
+cd gleif-frontend
 rm -rf .next
 npm install
 npm run build

@@ -197,7 +197,7 @@ docker logs vault-dev
 cd twin-service && npm run start:vault
 
 # Frontend logs (if running)
-cd gleif-poc && npm run dev
+cd gleif-frontend && npm run dev
 ```
 
 ## Test Results Interpretation

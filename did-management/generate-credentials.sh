@@ -7,7 +7,7 @@ fi
 export LE_AID_FILENAME="Eabc123_placeholder_legal_entity_aid"
 export SCHEMA_SAID="E123_SCHEMA_ID_PLACEHOLDER"
 export CRED_FILENAME="Edef456_placeholder_credential_said"
-export OUTPUT_DIR="../gleif-poc/public/.well-known/keri"
+export OUTPUT_DIR="../gleif-frontend/public/.well-known/keri"
 
 echo "--- Starting Real Credential Generation ---"
 
