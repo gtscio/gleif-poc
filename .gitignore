@@ -121,3 +121,7 @@ packages/*/node_modules/
 packages/*/dist/
 packages/*/.next/
 packages/*/coverage/
+config.env
+identity.env
+verification-method.env
+wallet.env
