@@ -7,6 +7,15 @@ export async function verifyLinkage(iotaDid: string) {
   console.log(`[Verifier] Starting LIVE verification for: ${iotaDid}`);
 
   try {
+    // Validate DID format
+    if (!iotaDid.startsWith("did:iota:")) {
+      return {
+        status: "NOT VERIFIED",
+        reason:
+          "Invalid DID format. Please provide a valid IOTA DID starting with 'did:iota:'.",
+      };
+    }
+
     // Step 1: Resolve the LIVE IOTA DID from the DLT
     console.log("[Verifier] Resolving TWIN ID from the DLT...");
 
@@ -15,11 +24,23 @@ export async function verifyLinkage(iotaDid: string) {
       `${BACKEND_URL}/resolve-did/${encodeURIComponent(iotaDid)}`
     );
     if (!resolveResponse.ok) {
+      if (resolveResponse.status === 500) {
+        return {
+          status: "NOT VERIFIED",
+          reason:
+            "DID not found on the IOTA network. Please ensure the DID exists and try again.",
+        };
+      }
       throw new Error(`Failed to resolve DID: ${resolveResponse.statusText}`);
     }
     const resolveData = await resolveResponse.json();
     if (!resolveData.success) {
-      throw new Error(`DID resolution failed: ${resolveData.error}`);
+      return {
+        status: "NOT VERIFIED",
+        reason: `DID resolution failed: ${
+          resolveData.error || "Unknown error"
+        }`,
+      };
     }
     const didDoc = resolveData.didDocument;
     console.log(`[Verifier] Successfully resolved IOTA DID: ${didDoc.id}`);
@@ -41,8 +62,7 @@ export async function verifyLinkage(iotaDid: string) {
     if (!vleiDidWebs) {
       return {
         status: "NOT VERIFIED",
-        reason:
-          "The provided IOTA DID was not found in the vLEI credential's alsoKnownAs property.",
+        reason: `The provided IOTA DID is not linked to any vLEI credential. Only DIDs that have been verified and linked to GLEIF vLEI credentials can be verified.`,
       };
     }
     console.log(`[Verifier] Found linkage in vLEI credential: ${vleiDidWebs}`);
