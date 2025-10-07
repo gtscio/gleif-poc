@@ -10,6 +10,111 @@ This project links a GLEIF vLEI (verifiable Legal Entity Identifier) to a TWIN I
 - Ensure minimal local setup requirements (Vault is optional).
 - Perform all operations on the real IOTA testnet.
 
+## 🎯 POC Overview
+
+This Proof of Concept (POC) successfully demonstrates **decentralized identity verification** by bridging GLEIF's traditional vLEI (verifiable Legal Entity Identifier) system with IOTA's blockchain-based Decentralized Identifiers (DIDs) and Non-Fungible Tokens (NFTs).
+
+### What the POC Does
+
+1. **Identity Resolution**: Resolves TWIN IDs from the IOTA Distributed Ledger Technology (DLT)
+2. **Credential Verification**: Checks linkage between TWIN IDs and vLEI credentials stored in a local credential registry
+3. **Blockchain Attestation**: Creates immutable attestations on the IOTA testnet consisting of:
+   - **Attestation DID**: A permanent DID document containing the verified identity information
+   - **Verification NFT**: An NFT with immutable metadata storing the DID document for easy sharing and verification
+4. **Explorer Integration**: Provides direct links to IOTA Explorer for viewing attestations and NFTs
+
+### Key Components
+
+- **Attestation DID**: Stores the complete DID document with revocation information as a permanent, resolvable record
+- **Verification NFT**: Contains the DID document in `immutable_metadata` for user-friendly sharing and display
+- **Bi-directional Verification**: Ensures the linkage works both ways (TWIN ID → vLEI and vLEI → TWIN ID)
+
+### Benefits
+
+- **Immutable Proof**: Verification results are permanently recorded on-chain
+- **Decentralized**: No central authority required for verification
+- **Interoperable**: Bridges traditional identity systems with blockchain technology
+- **User-Friendly**: NFTs can be easily shared, displayed, or integrated into applications
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    A[User] --> B[GLEIF POC Frontend<br/>Vercel]
+    B --> C[Twin Service<br/>Railway]
+    C --> D[HashiCorp Vault<br/>Secure Key Storage]
+    C --> E[IOTA Testnet]
+    C --> F[TWIN.org API<br/>Real Credentials]
+    G[DID Management<br/>did-management/] --> C
+    G --> F
+    H[CI/CD Pipeline<br/>.github/workflows/] --> I[Vercel Deployment]
+    H --> J[Railway Deployment]
+    H --> G
+    I --> K[BACKEND_URL<br/>Environment Variable]
+    J --> K
+```
+
+## 🔮 Future Enhancements: GLEIF QVI Integration
+
+The current POC demonstrates basic vLEI ↔ TWIN ID linkage verification. For full GLEIF compliance and production deployment, the following enhancements are needed:
+
+### Missing Components for GLEIF QVI (Qualified vLEI Issuer) Integration
+
+1. **QVI Registry Verification**
+   - Currently: Simple credential lookup in local registry
+   - Missing: Verification that the vLEI issuer is a qualified GLEIF QVI
+   - Required: Integration with GLEIF's QVI registry API
+
+2. **Issuer Accreditation Checks**
+   - Currently: Accepts any credential with matching DID
+   - Missing: Validation that the issuer has GLEIF accreditation
+   - Required: QVI status verification and accreditation date validation
+
+3. **Trust Chain Validation**
+   - Currently: Direct DID ↔ vLEI linkage
+   - Missing: Full trust chain from GLEIF root → QVI → vLEI → TWIN ID
+   - Required: Cryptographic trust chain verification
+
+4. **Revocation Status Checking**
+   - Currently: Basic revocation bitmap support
+   - Missing: Real-time revocation status from GLEIF registries
+   - Required: Integration with GLEIF's revocation services
+
+5. **Legal Entity Validation**
+   - Currently: Accepts any legal entity identifier
+   - Missing: Validation against official LEI registries
+   - Required: LEI format validation and registry cross-check
+
+### Production Readiness Requirements
+
+- **GLEIF API Integration**: Access to QVI registry and revocation services
+- **Regulatory Compliance**: Audit trails and compliance reporting
+- **Enterprise Security**: Enhanced Vault configurations for production
+- **Scalability**: Load balancing and performance optimization
+- **Monitoring**: Comprehensive logging and alerting for compliance
+
+### Current POC vs. Production Reality
+
+The POC works end-to-end because it uses **local credential simulation**:
+
+- **`.well-known/keri/` Directory**: Contains mock/real credentials served by the frontend
+- **`twin-wallet.json`**: Maps TWIN DIDs to vLEI identifiers for testing
+- **Local Verification**: Frontend serves credentials that verifier fetches
+
+**For production deployment**, QVIs must publish credentials at their official domains:
+
+```
+Real QVI Website: https://qvi.example.com/.well-known/keri/{credential-said}
+Mock in POC:      http://localhost:3000/.well-known/keri/Edef456_placeholder_credential_said
+```
+
+### Implementation Roadmap
+
+1. **Phase 1**: QVI Registry Integration
+2. **Phase 2**: Trust Chain Validation
+3. **Phase 3**: Real-time Revocation Checking
+4. **Phase 4**: Enterprise Deployment and Compliance
+
 -----
 
 ## 📂 Structure

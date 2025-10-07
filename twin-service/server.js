@@ -31,7 +31,8 @@ app.get("/", (req, res) => {
 // POST /create-did
 app.post("/create-did", async (req, res) => {
   try {
-    const { document, address } = await createDIDDocument();
+    const { controller } = req.body;
+    const { document, address } = await createDIDDocument(controller);
     res.json({ success: true, did: document, address });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -52,14 +53,19 @@ app.get("/resolve-did/:did", async (req, res) => {
 // POST /mint-nft
 app.post("/mint-nft", async (req, res) => {
   try {
-    const { issuerAddress, immutableData, metadata } = req.body;
+    const { controller, issuerAddress, immutableData, metadata } = req.body;
     if (!issuerAddress || !immutableData) {
       return res.status(400).json({
         success: false,
         error: "issuerAddress and immutableData are required",
       });
     }
-    const nft = await mintNFT(issuerAddress, immutableData, metadata);
+    const nft = await mintNFT(
+      controller,
+      issuerAddress,
+      immutableData,
+      metadata
+    );
     res.json({ success: true, nft });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

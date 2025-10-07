@@ -9,6 +9,10 @@ import {
 import { IotaNftConnector } from "@twin.org/nft-connector-iota";
 import { HashicorpVaultConnector } from "@twin.org/vault-connector-hashicorp";
 import { VaultConnectorFactory } from "@twin.org/vault-models";
+import {
+  FaucetConnectorFactory,
+  WalletConnectorFactory,
+} from "@twin.org/wallet-models";
 
 // Create the vault connector instance
 const vaultConnector = new HashicorpVaultConnector({
@@ -20,6 +24,9 @@ const vaultConnector = new HashicorpVaultConnector({
 
 // Register the vault connector
 VaultConnectorFactory.register("vault", () => vaultConnector);
+
+// Register the faucet connector
+FaucetConnectorFactory.register("faucet", () => iotaFaucetConnector);
 
 // IOTA Network Configuration from environment
 const nodeUrl =
@@ -62,7 +69,7 @@ export function createIdentityConnector(vaultMnemonicId: string) {
 }
 
 export function createWalletConnector(vaultMnemonicId: string) {
-  return new IotaWalletConnector({
+  const wallet = new IotaWalletConnector({
     config: {
       clientOptions: {
         url: nodeUrl,
@@ -72,6 +79,8 @@ export function createWalletConnector(vaultMnemonicId: string) {
       vaultSeedId: "test-seed",
     },
   });
+  WalletConnectorFactory.register(vaultMnemonicId, () => wallet);
+  return wallet;
 }
 
 export function createFaucetConnector() {
@@ -89,18 +98,33 @@ export function createFaucetConnector() {
   return iotaFaucetConnector;
 }
 
-export function createNftConnector() {
-  if (!iotaNftConnector) {
-    iotaNftConnector = new IotaNftConnector({
+export function createNftConnector(vaultMnemonicId?: string) {
+  // For now, create a new instance each time if vaultMnemonicId is provided
+  if (!vaultMnemonicId) {
+    if (!iotaNftConnector) {
+      iotaNftConnector = new IotaNftConnector({
+        config: {
+          clientOptions: {
+            url: nodeUrl,
+          },
+          network: network,
+        },
+      });
+    }
+    return iotaNftConnector;
+  } else {
+    const nftConnector = new IotaNftConnector({
       config: {
         clientOptions: {
           url: nodeUrl,
         },
         network: network,
+        vaultMnemonicId,
       },
+      walletConnectorType: vaultMnemonicId,
     });
+    return nftConnector;
   }
-  return iotaNftConnector;
 }
 
 export function createVaultConnector() {

@@ -9,55 +9,11 @@ import {
 import { IDidDocument } from "@twin.org/standards-w3c-did";
 
 /**
- * Creates a new wallet and returns the wallet details.
- * @returns Promise resolving to wallet information
- */
-export async function createWallet(): Promise<{
-  address: string;
-  seed?: string;
-}> {
-  try {
-    const identity = `wallet-${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 15)}`;
-    const walletConnector = createWalletConnector(identity);
-    createVaultConnector();
-
-    await walletConnector.create(identity);
-    const addresses = await walletConnector.getAddresses(identity, 0, 0, 1);
-
-    return { address: addresses[0] };
-  } catch (error) {
-    throw new Error(`Failed to create wallet: ${error}`);
-  }
-}
-
-/**
- * Funds a given address using the faucet connector.
- * @param address - The address to fund
- * @param amount - Optional amount to fund
- * @returns Promise resolving when funding is complete
- */
-export async function fundAddress(
-  address: string,
-  amount?: number
-): Promise<void> {
-  const faucetConnector = createFaucetConnector();
-  try {
-    const identity = `faucet-${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 15)}`;
-    await faucetConnector.fundAddress(identity, address);
-  } catch (error) {
-    throw new Error(`Failed to fund address: ${error}`);
-  }
-}
-
-/**
  * Creates a new DID document.
+ * @param controllerIdentity - Optional identity for the controller
  * @returns Promise resolving to the created DID document and associated address
  */
-export async function createDIDDocument(): Promise<{
+export async function createDIDDocument(controllerIdentity?: string): Promise<{
   document: IDidDocument;
   address: string;
 }> {
@@ -67,9 +23,11 @@ export async function createDIDDocument(): Promise<{
     );
 
     // Create an identity for the DID controller
-    const controllerIdentity = `did-${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 15)}`;
+    if (!controllerIdentity) {
+      controllerIdentity = `did-${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 15)}`;
+    }
 
     // Ensure vault connector is created first
     createVaultConnector();
@@ -88,7 +46,7 @@ export async function createDIDDocument(): Promise<{
     await createFaucetConnector().fundAddress(
       controllerIdentity,
       addresses[0],
-      60
+      100
     );
 
     const identityConnector = createIdentityConnector(controllerIdentity);
@@ -138,12 +96,14 @@ export async function resolveDIDDocument(did: string): Promise<any> {
 
 /**
  * Mints a new NFT.
+ * @param controllerIdentity - The identity for the controller
  * @param issuerAddress - The address of the NFT issuer
  * @param immutableData - Immutable data for the NFT
  * @param metadata - Optional metadata for the NFT
  * @returns Promise resolving to the minted NFT details
  */
 export async function mintNFT(
+  controllerIdentity: string,
   issuerAddress: string,
   immutableData: string,
   metadata?: { [key: string]: unknown }
@@ -151,21 +111,22 @@ export async function mintNFT(
   // Ensure vault connector is created first
   createVaultConnector();
 
-  const nftConnector = createNftConnector();
   try {
-    const controller = `mint-${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 15)}`;
+    const controller =
+      controllerIdentity ||
+      `mint-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
 
-    // Create and fund the wallet for the controller
-    const walletConnector = createWalletConnector(controller);
-    await walletConnector.create(controller);
-    const addresses = await walletConnector.getAddresses(controller, 0, 0, 1);
-    await createFaucetConnector().fundAddress(controller, addresses[0], 60);
-
-    const nft = await nftConnector.mint(controller, immutableData, metadata);
-    console.log("✅ NFT minted successfully! ID:", nft.id);
-    return nft;
+    const nftConnector = createNftConnector(controller);
+    await nftConnector.start(controller);
+    const tag = "verification-attestation";
+    const nftId = await nftConnector.mint(
+      controller,
+      tag,
+      immutableData,
+      metadata
+    );
+    console.log("✅ NFT minted successfully! ID:", nftId);
+    return nftId;
   } catch (error) {
     throw new Error(`Failed to mint NFT: ${error}`);
   }
@@ -185,7 +146,6 @@ export async function transferNFT(
   fromAddress: string,
   amount?: number
 ): Promise<void> {
-  const nftConnector = createNftConnector();
   try {
     const controller = `transfer-${Date.now()}-${Math.random()
       .toString(36)
@@ -193,6 +153,8 @@ export async function transferNFT(
     const recipientIdentity = `recipient-${Date.now()}-${Math.random()
       .toString(36)
       .substring(2, 15)}`;
+    const nftConnector = createNftConnector(controller);
+    await nftConnector.start(controller);
     await nftConnector.transfer(
       controller,
       nftId,

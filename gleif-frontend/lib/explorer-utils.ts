@@ -54,10 +54,21 @@ function extractNetworkFromDid(did: string): string | undefined {
  * @returns The object ID.
  */
 function extractObjectId(did: string): string {
+  console.log("extractObjectId input:", did);
   // Handle did:entity-storage: format
   const entityStorageMatch = /did:entity-storage:(.+)/.exec(did);
   if (entityStorageMatch) {
     return entityStorageMatch[1];
+  }
+
+  // Handle nft:iota: format - extract the object ID (last part)
+  const nftMatch = /nft:iota:(.+)/.exec(did);
+  console.log("nftMatch:", nftMatch);
+  if (nftMatch) {
+    const parts = nftMatch[1].split(":");
+    console.log("parts:", parts);
+    // Return the last part (object ID)
+    return parts[parts.length - 1];
   }
 
   // Handle did:iota: format - extract the last part (object ID)
@@ -89,28 +100,6 @@ export function generateExplorerLink(
   const didNetwork = extractNetworkFromDid(did);
   const finalNetwork = network || didNetwork || getIotaNetwork();
   return `${explorerHost}/object/${objectId}?network=${finalNetwork}`;
-}
-
-/**
- * Generates a URL to view a transaction on the IOTA explorer
- * @param txId - The transaction ID to view
- * @returns The explorer URL for the transaction
- */
-export function getTransactionExplorerUrl(txId: string): string {
-  const explorerHost = getExplorerHost();
-  const network = getIotaNetwork();
-  return `${explorerHost}/tx/${encodeURIComponent(txId)}?network=${network}`;
-}
-
-/**
- * Generates a URL to view an NFT on the IOTA explorer
- * @param nftId - The NFT ID to view
- * @returns The explorer URL for the NFT
- */
-export function getNftExplorerUrl(nftId: string): string {
-  const explorerHost = getExplorerHost();
-  const network = getIotaNetwork();
-  return `${explorerHost}/nft/${encodeURIComponent(nftId)}?network=${network}`;
 }
 
 /**

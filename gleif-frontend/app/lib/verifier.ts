@@ -60,9 +60,13 @@ export async function verifyLinkage(iotaDid: string) {
       console.log(
         "[Verifier] Creating DID document and minting NFT attestation..."
       );
+      const controller = `attestation-${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 15)}`;
       const createDidResponse = await fetch(`${BACKEND_URL}/create-did`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ controller }),
       });
       if (!createDidResponse.ok) {
         throw new Error("Failed to create DID");
@@ -84,20 +88,25 @@ export async function verifyLinkage(iotaDid: string) {
         const mintNftResponse = await fetch(`${BACKEND_URL}/mint-nft`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ issuerAddress, immutableData, metadata }),
+          body: JSON.stringify({
+            controller,
+            issuerAddress,
+            immutableData,
+            metadata,
+          }),
         });
         if (mintNftResponse.ok) {
           const mintNftData = await mintNftResponse.json();
           if (mintNftData.success) {
             const nft = mintNftData.nft;
             console.log(
-              `[Verifier] Created attestation DID: ${attestationDid.id}, NFT: ${nft.id}`
+              `[Verifier] Created attestation DID: ${attestationDid.id}, NFT: ${nft}`
             );
             return {
               status: "VERIFIED",
               originalDid: iotaDid,
               attestationDid: attestationDid.id,
-              nftId: nft.id,
+              nftId: nft,
               issuerAddress,
             };
           } else {
