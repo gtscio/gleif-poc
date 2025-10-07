@@ -72,6 +72,7 @@ export async function verifyLinkage(iotaDid: string) {
         throw new Error(createDidData.error || "Failed to create DID");
       }
       const attestationDid = createDidData.did;
+      const issuerAddress = createDidData.address;
       const immutableData = JSON.stringify(didDoc);
       const metadata = {
         type: "verification-attestation",
@@ -79,8 +80,6 @@ export async function verifyLinkage(iotaDid: string) {
         linkedDid: vleiDid,
         attestationDid: attestationDid.id,
       };
-      const issuerAddress =
-        "iota1q9f7w3q8r9t0u1i2o3p4a5s6d7f8g9h0j1k2l3z4x5c6v7b8n9m0"; // placeholder address
       try {
         const mintNftResponse = await fetch(`${BACKEND_URL}/mint-nft`, {
           method: "POST",
@@ -101,7 +100,18 @@ export async function verifyLinkage(iotaDid: string) {
               nftId: nft.id,
               issuerAddress,
             };
+          } else {
+            console.log(
+              "[Verifier] NFT minting failed, not success:",
+              mintNftData.error
+            );
           }
+        } else {
+          console.log(
+            "[Verifier] NFT minting failed, response not ok:",
+            mintNftResponse.status,
+            await mintNftResponse.text()
+          );
         }
         console.log(
           "[Verifier] NFT minting failed, but verification successful"

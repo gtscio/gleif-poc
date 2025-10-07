@@ -50,6 +50,29 @@ export default function Home() {
     }
   };
 
+  const handleGenerateDid = async () => {
+    setIsLoading(true);
+    setVerificationStatus(null);
+    setReason("");
+    setBlockchainData({});
+    try {
+      const response = await fetch("/api/generate-did", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const result = await response.json();
+      if (result.success) {
+        setDidToVerify(result.did);
+      } else {
+        alert("Failed to generate DID: " + (result.message || result.error));
+      }
+    } catch (error) {
+      alert("Failed to generate DID: " + (error as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="font-sans min-h-screen p-8 bg-gray-50 flex items-center justify-center">
       <div className="max-w-md w-full">
@@ -84,6 +107,13 @@ export default function Home() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+          <button
+            onClick={handleGenerateDid}
+            disabled={isLoading}
+            className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed mb-4"
+          >
+            {isLoading ? "Generating..." : "Generate New DID"}
+          </button>
           <button
             onClick={handleVerify}
             disabled={isLoading || !didToVerify}

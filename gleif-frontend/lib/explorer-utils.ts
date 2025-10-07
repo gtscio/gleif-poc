@@ -121,7 +121,7 @@ export function getNftExplorerUrl(nftId: string): string {
 export function getAddressExplorerUrl(address: string): string {
   const explorerHost = getExplorerHost();
   const network = getIotaNetwork();
-  return `${explorerHost}/addr/${encodeURIComponent(
+  return `${explorerHost}/address/${encodeURIComponent(
     address
   )}?network=${network}`;
 }

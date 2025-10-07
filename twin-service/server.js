@@ -31,8 +31,8 @@ app.get("/", (req, res) => {
 // POST /create-did
 app.post("/create-did", async (req, res) => {
   try {
-    const did = await createDIDDocument();
-    res.json({ success: true, did });
+    const { document, address } = await createDIDDocument();
+    res.json({ success: true, did: document, address });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

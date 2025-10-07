@@ -21,7 +21,7 @@ export async function createWallet(): Promise<{
       .toString(36)
       .substring(2, 15)}`;
     const walletConnector = createWalletConnector(identity);
-    const vaultConnector = createVaultConnector();
+    createVaultConnector();
 
     await walletConnector.create(identity);
     const addresses = await walletConnector.getAddresses(identity, 0, 0, 1);
@@ -55,9 +55,12 @@ export async function fundAddress(
 
 /**
  * Creates a new DID document.
- * @returns Promise resolving to the created DID document
+ * @returns Promise resolving to the created DID document and associated address
  */
-export async function createDIDDocument(): Promise<IDidDocument> {
+export async function createDIDDocument(): Promise<{
+  document: IDidDocument;
+  address: string;
+}> {
   try {
     console.log(
       "🔍 Creating real IOTA testnet DID using TWIN Identity Connector..."
@@ -107,7 +110,7 @@ export async function createDIDDocument(): Promise<IDidDocument> {
       document.id
     );
 
-    return document;
+    return { document, address: addresses[0] };
   } catch (error) {
     console.log("❌ Failed to create DID document:", (error as Error).message);
     console.log("Full error details:", error);
@@ -145,11 +148,21 @@ export async function mintNFT(
   immutableData: string,
   metadata?: { [key: string]: unknown }
 ): Promise<{ id: string; [key: string]: unknown }> {
+  // Ensure vault connector is created first
+  createVaultConnector();
+
   const nftConnector = createNftConnector();
   try {
     const controller = `mint-${Date.now()}-${Math.random()
       .toString(36)
       .substring(2, 15)}`;
+
+    // Create and fund the wallet for the controller
+    const walletConnector = createWalletConnector(controller);
+    await walletConnector.create(controller);
+    const addresses = await walletConnector.getAddresses(controller, 0, 0, 1);
+    await createFaucetConnector().fundAddress(controller, addresses[0], 60);
+
     const nft = await nftConnector.mint(controller, immutableData, metadata);
     console.log("✅ NFT minted successfully! ID:", nft.id);
     return nft;
