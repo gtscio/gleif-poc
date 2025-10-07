@@ -57,18 +57,13 @@ This Proof of Concept (POC) successfully demonstrates **decentralized identity v
 
 ```mermaid
 graph TD
-    A[User] --> B[GLEIF POC Frontend<br/>Vercel]
-    B --> C[Twin Service<br/>Railway]
-    C --> D[HashiCorp Vault<br/>Secure Key Storage]
+    A[User] --> B[GLEIF POC Frontend<br/>localhost:3000]
+    B --> C[Twin Service<br/>localhost:3001]
+    C --> D[HashiCorp Vault<br/>localhost:8200]
     C --> E[IOTA Testnet]
     C --> F[TWIN.org API<br/>Real Credentials]
     G[DID Management<br/>did-management/] --> C
     G --> F
-    H[CI/CD Pipeline<br/>.github/workflows/] --> I[Vercel Deployment]
-    H --> J[Railway Deployment]
-    H --> G
-    I --> K[BACKEND_URL<br/>Environment Variable]
-    J --> K
 ```
 
 ## 🔮 Future Enhancements: GLEIF QVI Integration
