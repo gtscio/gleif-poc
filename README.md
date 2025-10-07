@@ -62,8 +62,8 @@ graph TD
     C --> D[HashiCorp Vault<br/>localhost:8200]
     C --> E[IOTA Testnet]
     C --> F[TWIN.org API<br/>Real Credentials]
-    G[DID Management<br/>did-management/] --> C
-    G --> F
+    G[DID Management<br/>did-management/] -->|uses| C
+    G -->|fetches| F
 ```
 
 ## 🔮 Future Enhancements: GLEIF QVI Integration
