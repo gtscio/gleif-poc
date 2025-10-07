@@ -29,6 +29,23 @@ This Proof of Concept (POC) successfully demonstrates **decentralized identity v
 - **Verification NFT**: Contains the DID document in `immutable_metadata` for user-friendly sharing and display
 - **Bi-directional Verification**: Ensures the linkage works both ways (TWIN ID → vLEI and vLEI → TWIN ID)
 
+### What Gets Stored on Blockchain
+
+#### Attestation DID Document
+- **Content**: Complete IOTA DID document (controller, public keys, service endpoints, revocation info)
+- **Purpose**: Immutable record that this DID exists and was verified
+
+#### NFT Immutable Data
+- **Content**: JSON string of the IOTA DID document
+- **Metadata**: Verification details (original DID, linked vLEI, attestation timestamp)
+- **Purpose**: Shareable proof that this identity was verified against a GLEIF vLEI
+
+#### What This Proves
+- ✅ This IOTA DID exists and is controlled by a valid wallet
+- ✅ This DID was verified to be linked to a GLEIF vLEI at a specific time
+- ✅ The linkage is attested by blockchain records (DID + NFT)
+- ✅ Anyone can verify the DID resolution and NFT ownership
+
 ### Benefits
 
 - **Immutable Proof**: Verification results are permanently recorded on-chain
