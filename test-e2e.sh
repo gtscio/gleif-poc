@@ -208,7 +208,7 @@ start_vault() {
     fi
 
     # Create wallet encryption key
-    if curl -s -X POST -H "X-Vault-Token: root" http://localhost:8200/v1/transit/keys/wallet-encryption > /dev/null; then
+    if curl -s -X POST -H "X-Vault-Token: root" http://localhost:8200/v1/transit/keys/wallet-key > /dev/null; then
         log "Wallet encryption key created"
     else
         log "Failed to create wallet encryption key"

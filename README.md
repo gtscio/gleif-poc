@@ -38,12 +38,11 @@ The POC consists of a frontend UI, a backend service for identity operations, an
 ```mermaid
 graph TD
     A[User] --> B[GLEIF POC Frontend<br/>localhost:3000];
-    B --> C[Twin Service<br/>localhost:3001];
+    B -->|API proxy| C[Twin Service<br/>localhost:3001];
     C --> D[HashiCorp Vault<br/>localhost:8200];
     C --> E[IOTA Testnet];
-    C --> F[TWIN.org API<br/>Real Credentials];
-    G[DID Management Scripts<br/>did-management/] -->|uses| C;
-    G -->|fetches| F;
+    F[DID Management Scripts<br/>did-management/] -->|API calls| C;
+    F -->|generates| G[Frontend Public Directory<br/>credential files];
 ```
 
 ---

@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import { dirname } from "path";
+import { fileURLToPath } from "url";
 
 async function main() {
   const [domainOrigin, outputPath] = process.argv.slice(2);
@@ -13,7 +14,12 @@ async function main() {
   const resolvedOutputPath =
     outputPath || "../gleif-frontend/public/.well-known/did-configuration.json";
 
-  const walletRaw = await readFile("./twin-wallet.json", "utf-8");
+  // Get the directory where this script is located
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  const walletPath = `${__dirname}/twin-wallet.json`;
+
+  const walletRaw = await readFile(walletPath, "utf-8");
   const wallet = JSON.parse(walletRaw);
 
   if (!wallet.controllerIdentity || !wallet.verificationMethodId) {
