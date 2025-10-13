@@ -1,17 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyLinkage } from "../../lib/verifier";
 
 export async function POST(request: NextRequest) {
   try {
-    const { did: iotaDid } = await request.json();
-    if (!iotaDid) {
+    const { did, verificationType } = await request.json();
+    if (!did || !verificationType) {
       return NextResponse.json(
-        { status: "NOT VERIFIED", reason: "IOTA DID not provided." },
+        {
+          status: "NOT VERIFIED",
+          reason: "DID or verificationType not provided.",
+        },
         { status: 400 }
       );
     }
 
-    const result = await verifyLinkage(iotaDid);
+    const backendResponse = await fetch("http://localhost:3001/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ did, verificationType }),
+    });
+
+    if (!backendResponse.ok) {
+      return NextResponse.json(
+        { status: "ERROR", reason: "Backend verification failed." },
+        { status: backendResponse.status }
+      );
+    }
+
+    const result = await backendResponse.json();
     return NextResponse.json(result);
   } catch (error) {
     console.error("[API Handler] Error:", error);

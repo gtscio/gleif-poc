@@ -6,7 +6,10 @@ import {
   resolveDIDDocument,
   mintNFT,
   transferNFT,
+  upsertLinkedDomainsService,
+  createDomainLinkageCredential,
 } from "./lib/twin-utils.ts";
+import { verifyLinkage } from "./lib/verifier.js";
 
 dotenv.config({
   path: [
@@ -32,8 +35,19 @@ app.get("/", (req, res) => {
 app.post("/create-did", async (req, res) => {
   try {
     const { controller } = req.body;
-    const { document, address } = await createDIDDocument(controller);
-    res.json({ success: true, did: document, address });
+    const {
+      document,
+      address,
+      controllerIdentity,
+      defaultVerificationMethodId,
+    } = await createDIDDocument(controller);
+    res.json({
+      success: true,
+      did: document,
+      address,
+      controllerIdentity,
+      verificationMethodId: defaultVerificationMethodId,
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -84,6 +98,70 @@ app.post("/transfer-nft", async (req, res) => {
     }
     await transferNFT(nftId, toAddress, fromAddress, amount);
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /verify
+app.post("/verify", async (req, res) => {
+  try {
+    const { did, verificationType } = req.body;
+    if (!did || !verificationType) {
+      return res.status(400).json({
+        success: false,
+        error: "did and verificationType are required",
+      });
+    }
+    const result = await verifyLinkage(did, verificationType);
+    res.json({ success: true, result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /link-domain
+app.post("/link-domain", async (req, res) => {
+  try {
+    const { did, controllerIdentity, domainOrigin } = req.body;
+    if (!did || !controllerIdentity || !domainOrigin) {
+      return res.status(400).json({
+        success: false,
+        error: "did, controllerIdentity, and domainOrigin are required",
+      });
+    }
+    const service = await upsertLinkedDomainsService(
+      controllerIdentity,
+      did,
+      domainOrigin
+    );
+    res.json({ success: true, service });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /domain-credential
+app.post("/domain-credential", async (req, res) => {
+  try {
+    const { controllerIdentity, verificationMethodId, domainOrigin, id } =
+      req.body;
+    if (!controllerIdentity || !verificationMethodId || !domainOrigin) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "controllerIdentity, verificationMethodId, and domainOrigin are required",
+      });
+    }
+
+    const { jwt, credential } = await createDomainLinkageCredential(
+      controllerIdentity,
+      verificationMethodId,
+      domainOrigin,
+      id
+    );
+
+    res.json({ success: true, jwt, credential });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

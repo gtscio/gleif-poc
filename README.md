@@ -1,11 +1,27 @@
 # GLEIF POC — vLEI ↔ TWIN ID Linkage Verifier
 
-**Proof of Concept for Decentralized Legal Entity Verification**
+...
+
+## 🎯 Clarifying Our Approach: DID Linking vs. Domain Linkage
+
+It's important to be precise about the verification methods this PoC implements.
+
+* **W3C Domain Linkage:** This method involves an entity proving control over their own web domain (`my-company.com`) by hosting a credential there. It's a self-sovereign, highly technical approach.
+
+* **DID Linking (Issuer-Based Method):** This method uses a trusted third party (in our case, a simulated Qualified vLEI Issuer or QVI) to issue a credential that links the vLEI's `did:webs` to the TWIN ID's `did:iota`. The trust is anchored in the authority of the QVI.
+
+**This PoC demonstrates both DID Linking and W3C Domain Linkage.** The DID Linking approach is highly scalable as it relies on a network of trusted issuers rather than requiring every business to manage its own public web infrastructure. The Domain Linkage flow lets the legal entity self-host a DID Configuration file on its own domain (simulated here by the Next.js app).
+
+---
+
+## Proof of Concept for Decentralized Legal Entity Verification
 
 This project is a working prototype that links GLEIF vLEI (verifiable Legal Entity Identifier) credentials to TWIN IDs on the IOTA testnet. It enables trustless, transparent verification of legal entity identities using blockchain technology.
 
 **🎯 Key Features Demonstrated:**
 
+* ✅ **DID Linking Verification:** Demonstrates the issuer-based linkage between a vLEI `did:webs` and a TWIN `did:iota`.
+* ✅ **Domain Linkage Verification:** Hosts a DID Configuration file and verifies the signed Domain Linkage credential served from the simulated company website.
 * ✅ **Bi-directional Verification:** Confirms the link between traditional LEIs and decentralized DIDs.
 * ✅ **Live Blockchain Operations:** Uses the real IOTA testnet for DID management and NFT-based attestations.
 * ✅ **Secure Key Management:** Integrates with HashiCorp Vault for secure wallet operations.
@@ -13,11 +29,11 @@ This project is a working prototype that links GLEIF vLEI (verifiable Legal Enti
 
 **⚠️ Current Scope:** This is a proof of concept to demonstrate technical feasibility. A production-ready system would require integration with a GLEIF-accredited Qualified vLEI Issuer (QVI).
 
------
+---
 
 ## 🏗️ Architecture
 
-The POC consists of a frontend UI, a backend service for identity operations, and integrations with Vault and the IOTA testnet.
+The POC consists of a frontend UI, a backend service for identity operations, and integrations with Vault (using Transit Engine for secure key operations) and the IOTA testnet.
 
 ```mermaid
 graph TD
@@ -30,9 +46,11 @@ graph TD
     G -->|fetches| F;
 ```
 
------
+---
 
 ## 🚀 Getting Started
+
+> **Note:** All setup commands should be run from the project root directory.
 
 ### 🛠️ Prerequisites
 
@@ -47,6 +65,7 @@ graph TD
 * `gleif-frontend/`: The Next.js UI, including the verification API route.
 * `twin-service/`: Express backend for managing DIDs and NFTs.
 * `did-management/`: Scripts for identity creation and credential generation.
+  * `create-domain-linkage.js`: Requests a Domain Linkage credential and writes the DID Configuration file for the simulated domain.
 * `test-e2e.sh`: End-to-end testing script.
 
 ### ⚡ Quickstart
@@ -55,31 +74,37 @@ You can run the project with or without HashiCorp Vault.
 
 #### With Vault (Recommended)
 
-1. **Start Vault:**
+1. **Start Vault and enable Transit Engine:**
 
     ```bash
-    docker run -d --name vault-dev -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=root hashicorp/vault server -dev
+      docker run -d --name vault-dev -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=root hashicorp/vault server -dev
+      sleep 5
+      docker exec -e VAULT_ADDR=http://127.0.0.1:8200 vault-dev vault login root
+      docker exec -e VAULT_ADDR=http://127.0.0.1:8200 vault-dev vault secrets enable transit
+      docker exec -e VAULT_ADDR=http://127.0.0.1:8200 vault-dev vault write -f transit/keys/wallet-key
     ```
 
 2. **Start the Backend:**
 
     ```bash
-    cd twin-service && cp .env.vault .env && npm run dev:vault
+    cd twin-service && cp .env.vault .env && npm run start:vault
     ```
 
 3. **Generate Credentials:**
 
     ```bash
-    cd ../did-management && node manage-did.js && ./generate-credentials.sh $(jq -r '.did' twin-wallet.json)
+    cd did-management && node manage-did.js && ./generate-credentials.sh $(jq -r '.did' twin-wallet.json)
     ```
+
+    > This script now generates both the simulated QVI credential (DID Linking path) and the DID Configuration file containing the signed Domain Linkage credential. It also publishes the `LinkedDomains` service on the freshly created DID document so the frontend can host the domain proof.
 
 4. **Start the Frontend:**
 
     ```bash
-    cd ../gleif-frontend && npm run dev
+    cd gleif-frontend && npm run dev
     ```
 
-> 👉 Services will be available at: **Frontend**: `http://localhost:3000`, **Backend**: `http://localhost:3001`, **Vault**: `http://localhost:8200`.
+> 👉 Services will be available at: **Frontend**: `http://localhost:3000`, **Backend**: `http://localhost:3001`, **Vault**: `http://localhost:8200` (with Transit Engine enabled).
 
 #### Without Vault
 
@@ -92,10 +117,18 @@ You can run the project with or without HashiCorp Vault.
 2. **Start the Frontend:**
 
     ```bash
-    cd ../gleif-frontend && npm run dev
+    cd gleif-frontend && npm run dev
     ```
 
------
+### Next Steps
+
+After setup, the `generate-credentials.sh` script creates simulated credentials including a QVI-issued DID Linking credential and a Domain Linkage credential hosted in the DID Configuration file. These credentials link the vLEI `did:webs` to the TWIN `did:iota`, and the script publishes the `LinkedDomains` service on the DID document for frontend hosting.
+
+To access and test the frontend, navigate to `http://localhost:3000` in your browser. Enter a TWIN DID (e.g., from `twin-wallet.json`) to verify the linkage and generate an attestation NFT on the IOTA testnet.
+
+For detailed testing instructions, refer to [`MANUAL_TESTING_GUIDE.md`](MANUAL_TESTING_GUIDE.md).
+
+---
 
 ## ⚙️ How the POC Works
 
@@ -119,7 +152,7 @@ This POC demonstrates a complete, end-to-end flow for decentralized identity ver
 
 This process proves that a specific IOTA DID, controlled by a valid wallet, was verified to be linked to a GLEIF vLEI at a specific time.
 
------
+---
 
 ## 🎯 Business Value & Vision
 
@@ -135,7 +168,7 @@ This process proves that a specific IOTA DID, controlled by a valid wallet, was 
 * **Self-Hosted:** Organizations manage their own vLEI event logs and credentials on their web servers. This offers maximum control with zero infrastructure cost but requires technical expertise.
 * **QVI as a Service:** A Qualified vLEI Issuer (QVI) handles all credential management, providing an additional layer of trust and simplifying adoption for non-technical organizations.
 
------
+---
 
 ## 🔮 From POC to Production
 
@@ -156,7 +189,7 @@ The most critical step toward a production system is validating that the vLEI cr
 * **Phase 2:** Implement the full trust chain verification and real-time revocation checks.
 * **Phase 3:** Add enterprise features like monitoring, alerting, and compliance reporting.
 
------
+---
 
 ## 📚 Additional Information
 
@@ -173,6 +206,10 @@ VAULT_ENABLED=true|false
 VAULT_ENDPOINT=https://vault.example.com:8200
 VAULT_ROLE_ID=<id>
 VAULT_SECRET_ID=<id>
+
+# Transit engine configuration (if Vault enabled)
+TRANSIT_KEY_NAME=wallet-key
+TRANSIT_MOUNT_PATH=transit
 
 # IOTA network configuration
 NETWORK=testnet|mainnet
@@ -214,6 +251,7 @@ chmod +x test-e2e.sh && ./test-e2e.sh
 
 * **Ports are busy:** `lsof -ti:3000,3001,8200 | xargs kill -9`
 * **Vault issues:** `docker logs vault-dev`
+* **Transit Engine issues:** Check Vault logs and ensure transit secrets engine is enabled and the wallet-key exists.
 * **npm fails:** `npm cache clean --force && rm -rf node_modules && npm install`
 * **Credentials missing:** Re-run the `./generate-credentials.sh` script.
 

@@ -11,6 +11,13 @@ const publicKeriDir = path.join(
   ".well-known",
   "keri"
 );
+const didConfigFile = path.join(
+  __dirname,
+  "..",
+  "public",
+  ".well-known",
+  "did-configuration.json"
+);
 const credentialFile = path.join(
   publicKeriDir,
   "Edef456_placeholder_credential_said"
@@ -22,11 +29,17 @@ const icpFile = path.join(
 );
 
 function credentialsExist() {
-  return fs.existsSync(credentialFile) && fs.existsSync(icpFile);
+  return (
+    fs.existsSync(credentialFile) &&
+    fs.existsSync(icpFile) &&
+    fs.existsSync(didConfigFile)
+  );
 }
 
 if (credentialsExist()) {
-  console.log("✅ KERI credential files already exist. Skipping generation.");
+  console.log(
+    "✅ Credential artifacts (KERI + DID Configuration) already exist. Skipping generation."
+  );
   process.exit(0);
 }
 

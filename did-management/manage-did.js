@@ -30,6 +30,9 @@ async function createIdentity() {
 
     const walletData = {
       did: realDid,
+      address: result.address,
+      controllerIdentity: result.controllerIdentity,
+      verificationMethodId: result.verificationMethodId,
       // Note: In production, seed should not be stored locally
       // It's stored securely in Vault by the twin-service
     };
@@ -57,8 +60,40 @@ async function updateIdentityWithVLEILink() {
     return;
   }
 
-  // Add alsoKnownAs to link with vLEI
-  walletData.alsoKnownAs = [VLEI_DID_WEBS];
+  if (!walletData.controllerIdentity) {
+    throw new Error(
+      "Wallet file missing controllerIdentity. Please recreate the DID."
+    );
+  }
+
+  const domainOrigin = "http://localhost:3000";
+
+  console.log("🌐 Publishing LinkedDomains service to DID document...");
+  const linkDomainResponse = await fetch("http://localhost:3001/link-domain", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      did: walletData.did,
+      controllerIdentity: walletData.controllerIdentity,
+      domainOrigin,
+    }),
+  });
+
+  if (!linkDomainResponse.ok) {
+    throw new Error(
+      `Failed to link domain: HTTP ${
+        linkDomainResponse.status
+      } ${await linkDomainResponse.text()}`
+    );
+  }
+
+  console.log("✅ LinkedDomains service published successfully.");
+
+  // Persist alsoKnownAs locally for reference
+  walletData.alsoKnownAs = [
+    "did:webs:localhost:3000:Eabc123_placeholder_legal_entity_aid",
+    "did:web:localhost:3000",
+  ];
   await writeFile("./twin-wallet.json", JSON.stringify(walletData, null, 2));
 
   console.log("✅ TWIN ID updated successfully!");

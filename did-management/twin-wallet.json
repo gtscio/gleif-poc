@@ -1,6 +1,10 @@
 {
-  "did": "did:iota:testnet:0x92b5b4a041afed4071c2d37f9f14c6f7e3067bebf6106035a347bf7d53eedc8e",
+  "did": "did:iota:testnet:0xe682944593311be353aa6e5d4cfb62041e407fc66c43586b31f87fe87be4309f",
+  "address": "0x5dc15d47a8d4220485b7d87495006af4a88b92df781bec61f678f5d1482efedc",
+  "controllerIdentity": "did-1760344090489-bzsefty3ul",
+  "verificationMethodId": "did:iota:testnet:0xe682944593311be353aa6e5d4cfb62041e407fc66c43586b31f87fe87be4309f#key-1",
   "alsoKnownAs": [
-    "did:webs:mock-qvi.local:Eabc123_placeholder_legal_entity_aid"
+    "did:webs:localhost:3000:Eabc123_placeholder_legal_entity_aid",
+    "did:web:localhost:3000"
   ]
 }

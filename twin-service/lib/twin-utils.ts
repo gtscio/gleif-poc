@@ -6,7 +6,13 @@ import {
   createNftConnector,
   createVaultConnector,
 } from "./twin-connectors";
-import { IDidDocument } from "@twin.org/standards-w3c-did";
+import {
+  DidVerificationMethodType,
+  IDidDocument,
+  IDidDocumentVerificationMethod,
+  IDidService,
+  IDidVerifiableCredential,
+} from "@twin.org/standards-w3c-did";
 
 /**
  * Creates a new DID document.
@@ -16,6 +22,8 @@ import { IDidDocument } from "@twin.org/standards-w3c-did";
 export async function createDIDDocument(controllerIdentity?: string): Promise<{
   document: IDidDocument;
   address: string;
+  controllerIdentity: string;
+  defaultVerificationMethodId?: string;
 }> {
   try {
     console.log(
@@ -68,7 +76,78 @@ export async function createDIDDocument(controllerIdentity?: string): Promise<{
       document.id
     );
 
-    return { document, address: addresses[0] };
+    console.log(
+      "✅ DID document created, adding default verification method..."
+    );
+    let defaultVerificationMethodId: string | undefined;
+    try {
+      const verificationMethod = await identityConnector.addVerificationMethod(
+        controllerIdentity,
+        document.id,
+        DidVerificationMethodType.AssertionMethod,
+        "key-1"
+      );
+      if (
+        verificationMethod &&
+        typeof verificationMethod === "object" &&
+        "id" in verificationMethod
+      ) {
+        defaultVerificationMethodId = (verificationMethod as { id?: string })
+          .id;
+      }
+      console.log(
+        "✅ Added default verification method",
+        defaultVerificationMethodId
+      );
+    } catch (error) {
+      console.error(
+        "⚠️ Failed to add default verification method, downstream operations may fail:",
+        error
+      );
+    }
+
+    let resolvedDocument: IDidDocument = document;
+    try {
+      const refreshedDocument = await resolveDIDDocument(document.id);
+      if (refreshedDocument) {
+        resolvedDocument = refreshedDocument;
+      }
+    } catch (resolveError) {
+      console.warn(
+        "⚠️ Could not refresh DID document after method insertion, using initial document:",
+        resolveError
+      );
+    }
+
+    if (
+      !defaultVerificationMethodId &&
+      Array.isArray(resolvedDocument.verificationMethod)
+    ) {
+      const firstMethod = resolvedDocument.verificationMethod[0] as
+        | string
+        | IDidDocumentVerificationMethod
+        | undefined;
+      if (typeof firstMethod === "string") {
+        defaultVerificationMethodId = firstMethod;
+      } else {
+        defaultVerificationMethodId = firstMethod?.id;
+      }
+    }
+
+    console.log("Document keys:", Object.keys(resolvedDocument));
+    console.dir(resolvedDocument, { depth: null });
+    console.log("Returning controller identity", controllerIdentity);
+    console.log(
+      "Default verification method id",
+      defaultVerificationMethodId || "<none>"
+    );
+
+    return {
+      document: resolvedDocument,
+      address: addresses[0],
+      controllerIdentity,
+      defaultVerificationMethodId,
+    };
   } catch (error) {
     console.log("❌ Failed to create DID document:", (error as Error).message);
     console.log("Full error details:", error);
@@ -92,6 +171,84 @@ export async function resolveDIDDocument(did: string): Promise<any> {
   } catch (error) {
     throw new Error(`Failed to resolve DID document: ${error}`);
   }
+}
+
+/**
+ * Ensure the DID document exposes a LinkedDomains service for the supplied origin.
+ * @param controllerIdentity - Vault identity that controls the DID
+ * @param did - The DID document identifier
+ * @param domainOrigin - The HTTPS origin to advertise
+ */
+export async function upsertLinkedDomainsService(
+  controllerIdentity: string,
+  did: string,
+  domainOrigin: string
+): Promise<IDidService> {
+  const identityConnector = createIdentityConnector(controllerIdentity);
+  const serviceId = "linked-domain";
+  const fullServiceId = `${did}#${serviceId}`;
+
+  try {
+    await identityConnector.removeService(controllerIdentity, fullServiceId);
+  } catch (error) {
+    // Ignore missing service errors
+    if (!(error instanceof Error && /notFound/i.test(error.message))) {
+      console.log("⚠️ Failed to remove existing linked domain service:", error);
+    }
+  }
+
+  const service = await identityConnector.addService(
+    controllerIdentity,
+    did,
+    serviceId,
+    "LinkedDomains",
+    domainOrigin
+  );
+
+  return service;
+}
+
+/**
+ * Create a Domain Linkage credential JWT for the provided origin.
+ * @param controllerIdentity - Vault identity that controls the DID
+ * @param verificationMethodId - Verification method used to sign the credential
+ * @param domainOrigin - Domain origin asserted in the credential
+ * @param credentialId - Optional identifier for the credential
+ */
+export async function createDomainLinkageCredential(
+  controllerIdentity: string,
+  verificationMethodId: string,
+  domainOrigin: string,
+  credentialId?: string
+): Promise<{ jwt: string; credential: IDidVerifiableCredential }> {
+  const identityConnector = createIdentityConnector(controllerIdentity);
+  const didFromVerificationMethod = verificationMethodId.includes("#")
+    ? verificationMethodId.split("#")[0]
+    : verificationMethodId;
+  const subject = {
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://identity.foundation/.well-known/did-configuration/v1",
+    ],
+    type: ["VerifiableCredential", "DomainLinkageCredential"],
+    credentialSubject: {
+      id: didFromVerificationMethod,
+      origin: domainOrigin,
+    },
+  };
+
+  const { verifiableCredential, jwt } =
+    await identityConnector.createVerifiableCredential(
+      controllerIdentity,
+      verificationMethodId,
+      credentialId,
+      subject
+    );
+
+  return {
+    jwt,
+    credential: verifiableCredential,
+  };
 }
 
 /**
@@ -164,4 +321,22 @@ export async function transferNFT(
   } catch (error) {
     throw new Error(`Failed to transfer NFT: ${error}`);
   }
+}
+
+/**
+ * Verifies linkage for a DID with a specific verification type.
+ * @param did - The DID to verify
+ * @param verificationType - The type of verification
+ * @returns Promise resolving to verification result
+ */
+export async function verifyLinkage(
+  did: string,
+  verificationType: string
+): Promise<any> {
+  // Placeholder implementation - to be expanded based on requirements
+  console.log(
+    `Verifying linkage for DID: ${did} with type: ${verificationType}`
+  );
+  // For now, return a basic result
+  return { status: "VERIFIED", did, verificationType };
 }

@@ -19,7 +19,10 @@ export default function Home() {
     attestationDid?: string;
     nftId?: string;
     issuerAddress?: string;
+    linkedDid?: string;
+    linkedDomain?: string;
   }>({});
+  const [verificationType, setVerificationType] = useState("did-linking");
 
   const handleVerify = async () => {
     setIsLoading(true);
@@ -30,16 +33,19 @@ export default function Home() {
       const response = await fetch("/api/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ did: didToVerify }),
+        body: JSON.stringify({ did: didToVerify, verificationType }),
       });
       const result = await response.json();
-      setVerificationStatus(result.status);
-      setReason(result.reason || "");
+      const payload = result?.result ?? result;
+      setVerificationStatus(payload.status);
+      setReason(payload.reason || "");
       setBlockchainData({
-        originalDid: result.originalDid,
-        attestationDid: result.attestationDid,
-        nftId: result.nftId,
-        issuerAddress: result.issuerAddress,
+        originalDid: payload.originalDid,
+        attestationDid: payload.attestationDid,
+        nftId: payload.nftId,
+        issuerAddress: payload.issuerAddress,
+        linkedDid: payload.linkedDid,
+        linkedDomain: payload.linkedDomain,
       });
     } catch (error) {
       setVerificationStatus("ERROR");
@@ -96,7 +102,7 @@ export default function Home() {
               htmlFor="did-input"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              TWIN Decentralized Identifier
+              TWIN ID
             </label>
             <input
               id="did-input"
@@ -106,6 +112,35 @@ export default function Home() {
               disabled={isLoading}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Verification Type
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="did-linking"
+                  checked={verificationType === "did-linking"}
+                  onChange={(e) => setVerificationType(e.target.value)}
+                  disabled={isLoading}
+                  className="mr-2"
+                />
+                DID Linking
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="domain-linkage"
+                  checked={verificationType === "domain-linkage"}
+                  onChange={(e) => setVerificationType(e.target.value)}
+                  disabled={isLoading}
+                  className="mr-2"
+                />
+                Domain Linkage
+              </label>
+            </div>
           </div>
           <button
             onClick={handleGenerateDid}
@@ -144,6 +179,16 @@ export default function Home() {
                 <h3 className="text-lg font-semibold text-gray-800">
                   Blockchain Explorer Links
                 </h3>
+                {(blockchainData.linkedDid || blockchainData.linkedDomain) && (
+                  <div className="text-sm text-gray-700 space-y-1">
+                    {blockchainData.linkedDomain && (
+                      <p>
+                        <span className="font-medium">Linked Domain:</span>{" "}
+                        {blockchainData.linkedDomain}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-1">
                   {blockchainData.originalDid && (
                     <button

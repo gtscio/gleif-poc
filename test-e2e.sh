@@ -200,6 +200,20 @@ start_vault() {
     # Wait for Vault to be ready
     wait_for_service "http://localhost:8200/v1/sys/health" "Vault"
 
+    # Enable transit secrets engine
+    if curl -s -X POST -H "X-Vault-Token: root" http://localhost:8200/v1/sys/mounts/transit -d '{"type": "transit"}' > /dev/null; then
+        log "Transit secrets engine enabled"
+    else
+        log "Failed to enable transit secrets engine"
+    fi
+
+    # Create wallet encryption key
+    if curl -s -X POST -H "X-Vault-Token: root" http://localhost:8200/v1/transit/keys/wallet-encryption > /dev/null; then
+        log "Wallet encryption key created"
+    else
+        log "Failed to create wallet encryption key"
+    fi
+
     test_result "Vault Startup" "PASS" "Vault started successfully on port 8200"
 }
 
@@ -310,10 +324,11 @@ test_credential_generation() {
 
             # Check if credential files were created
             if [ -f "../gleif-frontend/public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid" ] && \
-               [ -f "../gleif-frontend/public/.well-known/keri/Edef456_placeholder_credential_said" ]; then
-                test_result "Credential Generation" "PASS" "KERI credential files created successfully"
+               [ -f "../gleif-frontend/public/.well-known/keri/Edef456_placeholder_credential_said" ] && \
+               [ -f "../gleif-frontend/public/.well-known/did-configuration.json" ]; then
+                test_result "Credential Generation" "PASS" "Credential artifacts created (KERI + DID Configuration)"
             else
-                test_result "Credential Generation" "FAIL" "Credential files not found"
+                test_result "Credential Generation" "FAIL" "One or more credential artifacts missing"
             fi
         else
             test_result "Credential Generation" "FAIL" "No DID found in wallet file"
@@ -336,7 +351,9 @@ test_api_endpoints() {
     # Test DID creation endpoint (only if network is available)
     api_tests_total=$((api_tests_total + 1))
     if check_iota_network; then
-        if curl -s -X POST http://localhost:3001/create-did | jq -e '.success' > /dev/null 2>&1; then
+        if curl -s -X POST http://localhost:3001/create-did \
+            -H "Content-Type: application/json" \
+            -d '{"controller":"test-controller"}' | jq -e '.success' > /dev/null 2>&1; then
             api_tests_passed=$((api_tests_passed + 1))
             log "✅ Twin Service /create-did endpoint working"
         else
@@ -371,7 +388,7 @@ test_api_endpoints() {
     api_tests_total=$((api_tests_total + 1))
     if curl -s -X POST http://localhost:3000/api/verify \
         -H "Content-Type: application/json" \
-        -d '{"did":"test"}' | jq -e '.status' > /dev/null 2>&1; then
+        -d '{"did":"test","verificationType":"domain-linkage"}' | jq -e '.status' > /dev/null 2>&1; then
         api_tests_passed=$((api_tests_passed + 1))
         log "✅ Frontend /api/verify endpoint working"
     else
@@ -398,10 +415,10 @@ test_verification_flow() {
             local response
             response=$(curl -s -X POST http://localhost:3000/api/verify \
                 -H "Content-Type: application/json" \
-                -d "{\"did\":\"$did\"}")
+                -d "{\"did\":\"$did\",\"verificationType\":\"domain-linkage\"}")
 
             local status
-            status=$(echo "$response" | jq -r '.status' 2>/dev/null || echo "ERROR")
+            status=$(echo "$response" | jq -r '.result.status' 2>/dev/null || echo "ERROR")
 
             if [ "$status" = "VERIFIED" ]; then
                 local attestation_did nft_id
@@ -435,10 +452,10 @@ test_explorer_links() {
             local response
             response=$(curl -s -X POST http://localhost:3000/api/verify \
                 -H "Content-Type: application/json" \
-                -d "{\"did\":\"$did\"}")
+                -d "{\"did\":\"$did\",\"verificationType\":\"domain-linkage\"}")
 
             local status
-            status=$(echo "$response" | jq -r '.status' 2>/dev/null || echo "ERROR")
+            status=$(echo "$response" | jq -r '.result.status' 2>/dev/null || echo "ERROR")
 
             if [ "$status" = "VERIFIED" ]; then
                 local attestation_did nft_id
@@ -551,6 +568,7 @@ generate_report() {
 - $([ -f "did-management/twin-wallet.json" ] && echo "✅" || echo "❌") DID wallet available
 - $([ -f "gleif-frontend/public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid" ] && echo "✅" || echo "❌") KERI credentials generated
 - $([ -f "gleif-frontend/public/.well-known/keri/Edef456_placeholder_credential_said" ] && echo "✅" || echo "❌") Credential files present
+- $([ -f "gleif-frontend/public/.well-known/did-configuration.json" ] && echo "✅" || echo "❌") DID Configuration published
 
 ### API Testing
 - ✅ Twin Service endpoints responding

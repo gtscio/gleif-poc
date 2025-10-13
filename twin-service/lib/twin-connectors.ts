@@ -42,6 +42,17 @@ let iotaFaucetConnector: any = null;
 let iotaNftConnector: any = null;
 let hashicorpVaultConnector: any = null;
 
+export function createReadOnlyIdentityConnector() {
+  return new IotaIdentityConnector({
+    config: {
+      clientOptions: {
+        url: nodeUrl,
+      },
+      network: network,
+    },
+  });
+}
+
 export function createIdentityResolverConnector() {
   if (!iotaIdentityResolverConnector) {
     iotaIdentityResolverConnector = new IotaIdentityResolverConnector({
