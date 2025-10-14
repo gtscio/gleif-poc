@@ -60,22 +60,22 @@ flowchart LR
   G["GLEIF Root / KERI DB"]
 
   subgraph FE[gleif-frontend (Next.js)]
-    FE_API[/POST /api/verify/]
-    FE_CRED[/GET /api/credential/]
+    FE_API[POST /api/verify]
+    FE_CRED[GET /api/credential]
     FE_HOST[[Hosts .well-known/did-configuration.json]]
   end
 
   subgraph TS[twin-service (Express)]
-    TS_VERIFY[/POST /verify/]
-    TS_CREATE_DID[/POST /create-did/]
-    TS_MINT[/POST /mint-nft/]
-    TS_LINK_DOMAIN[/POST /link-domain/]
-    TS_DOMAIN_CRED[/POST /domain-credential/]
+    TS_VERIFY[POST /verify]
+    TS_CREATE_DID[POST /create-did]
+    TS_MINT[POST /mint-nft]
+    TS_LINK_DOMAIN[POST /link-domain]
+    TS_DOMAIN_CRED[POST /domain-credential]
     ALT_RES[Alt DID resolvers (did:web, did:ethr)]
   end
 
   subgraph PY[verification-service (Flask/KERI)]
-    PY_VERIFY[/POST /verify (KERI ACDC)/]
+    PY_VERIFY[POST /verify (KERI ACDC)]
     STEP1[[1) Structure]]
     STEP2[[2) Resolution]]
     STEP3[[3) Signatures]]
@@ -106,7 +106,7 @@ flowchart LR
   Ver -->|request verification| FE_API
   FE_API --> TS_VERIFY
   TS_VERIFY -->|resolve DID| IOTA
-  TS_VERIFY --> DEC{{verificationType?}}
+  TS_VERIFY --> DEC{verificationType?}
   DEC -->|domain-linkage| DL[Domain Linkage Path]
   DEC -->|did-linking| DLINK[DID Linking Path]
 
