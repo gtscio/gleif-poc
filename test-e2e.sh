@@ -26,13 +26,22 @@ TESTS_TOTAL=0
 # Service PIDs
 VAULT_PID=""
 TWIN_SERVICE_PID=""
+VERIFICATION_SERVICE_PID=""
 GLEIF_POC_PID=""
+
+# Credential generation variables
+CREATED_DID=""
 
 # Cleanup function
 cleanup() {
     echo -e "\n${BLUE}🧹 Cleaning up...${NC}"
 
     # Kill services
+    if [ ! -z "$VERIFICATION_SERVICE_PID" ]; then
+        echo "Stopping Verification Service (PID: $VERIFICATION_SERVICE_PID)..."
+        kill $VERIFICATION_SERVICE_PID 2>/dev/null || true
+    fi
+
     if [ ! -z "$GLEIF_POC_PID" ]; then
         echo "Stopping GLEIF POC frontend (PID: $GLEIF_POC_PID)..."
         kill $GLEIF_POC_PID 2>/dev/null || true
@@ -157,6 +166,133 @@ check_iota_network() {
     return 1
 }
 
+# Validate if a credential file contains real cryptographic data
+validate_real_credential() {
+    local cred_file="$1"
+
+    # Check if file exists
+    if [ ! -f "$cred_file" ]; then
+        return 1
+    fi
+
+    # Check for placeholder indicators
+    if grep -q "placeholder" "$cred_file" 2>/dev/null; then
+        return 1
+    fi
+
+    # Check for simulated signatures
+    if grep -q "QVI_SIGNATURE_SAID_SIMULATED" "$cred_file" 2>/dev/null; then
+        return 1
+    fi
+
+    # Check for placeholder schema ID
+    if grep -q "E123_SCHEMA_ID_PLACEHOLDER" "$cred_file" 2>/dev/null; then
+        return 1
+    fi
+
+    # Validate SAID format (should be base64url-encoded hash)
+    local said
+    said=$(jq -r '.d' "$cred_file" 2>/dev/null || echo "")
+    if [ -z "$said" ] || [ ${#said} -lt 40 ] || [[ "$said" != [A-Za-z0-9_-]* ]]; then
+        return 1
+    fi
+
+    # Validate AID format (should be base64url-encoded hash)
+    local aid
+    aid=$(jq -r '.i' "$cred_file" 2>/dev/null || echo "")
+    if [ -z "$aid" ] || [ ${#aid} -lt 40 ] || [[ "$aid" != [A-Za-z0-9_-]* ]]; then
+        return 1
+    fi
+
+    # Check for real signature structure
+    local signature
+    signature=$(jq -r '.p.d' "$cred_file" 2>/dev/null || echo "")
+    if [ -z "$signature" ] || [ ${#signature} -lt 40 ] || [[ "$signature" != [A-Za-z0-9_-]* ]]; then
+        return 1
+    fi
+
+    # Check for valid IOTA DID format
+    local iota_did
+    iota_did=$(jq -r '.a.alsoKnownAs[0]' "$cred_file" 2>/dev/null || echo "")
+    if [[ ! "$iota_did" =~ ^did:iota:testnet:0x[a-f0-9]{64}$ ]]; then
+        return 1
+    fi
+
+    return 0
+}
+
+# Detect dynamically generated credential files and extract real SAIDs/AIDs
+detect_generated_credentials() {
+    log "Detecting dynamically generated credential files..."
+
+    local keri_dir="$PROJECT_ROOT/gleif-frontend/public/.well-known/keri"
+    local habitats_file="$keri_dir/habitats.json"
+
+    # Initialize variables
+    GENERATED_LEGAL_ENTITY_AID=""
+    GENERATED_CREDENTIAL_SAID=""
+    GENERATED_IOTA_DID=""
+    CREDENTIAL_TYPE="placeholder"  # Default to placeholder
+
+    # Check if habitats.json exists (indicates real credentials were generated)
+    if [ -f "$habitats_file" ]; then
+        log "Found habitats.json - extracting real AIDs..."
+
+        # Extract legal entity AID from habitats.json
+        GENERATED_LEGAL_ENTITY_AID=$(jq -r '.legal_entity.aid' "$habitats_file" 2>/dev/null || echo "")
+
+        if [ ! -z "$GENERATED_LEGAL_ENTITY_AID" ]; then
+            log "Legal Entity AID: $GENERATED_LEGAL_ENTITY_AID"
+
+            # Find the credential file that references this legal entity AID
+            for cred_file in "$keri_dir"/*.json; do
+                if [ -f "$cred_file" ] && [ "$cred_file" != "$habitats_file" ]; then
+                    local cred_aid
+                    cred_aid=$(jq -r '.i' "$cred_file" 2>/dev/null || echo "")
+                    if [ "$cred_aid" = "$GENERATED_LEGAL_ENTITY_AID" ]; then
+                        GENERATED_CREDENTIAL_SAID=$(basename "$cred_file")
+                        log "Credential SAID: $GENERATED_CREDENTIAL_SAID"
+
+                        # Validate if this is a real credential
+                        if validate_real_credential "$cred_file"; then
+                            CREDENTIAL_TYPE="real"
+                            log "✅ Real credential detected with valid cryptographic signatures"
+                        else
+                            CREDENTIAL_TYPE="placeholder"
+                            log "⚠️ Placeholder credential detected (missing real signatures)"
+                        fi
+
+                        # Extract IOTA DID from the credential
+                        GENERATED_IOTA_DID=$(jq -r '.a.alsoKnownAs[0]' "$cred_file" 2>/dev/null || echo "")
+                        log "IOTA DID: $GENERATED_IOTA_DID"
+                        break
+                    fi
+                fi
+            done
+        fi
+    else
+        log "No habitats.json found - checking for placeholder credentials..."
+
+        # Check for placeholder credential file
+        local placeholder_file="$keri_dir/Edef456_placeholder_credential_said"
+        if [ -f "$placeholder_file" ]; then
+            GENERATED_CREDENTIAL_SAID="Edef456_placeholder_credential_said"
+            GENERATED_LEGAL_ENTITY_AID="Eabc123_placeholder_legal_entity_aid"
+            GENERATED_IOTA_DID="did:iota:testnet:0xce31abe830718f8bea3b831240c2ef2b9949d3c4e8ee5af5aa4052b6f0b7d1bb"
+            CREDENTIAL_TYPE="placeholder"
+            log "Placeholder credentials found"
+        else
+            log "No credentials found"
+        fi
+    fi
+
+    # Export variables for use in other functions
+    export GENERATED_LEGAL_ENTITY_AID
+    export GENERATED_CREDENTIAL_SAID
+    export GENERATED_IOTA_DID
+    export CREDENTIAL_TYPE
+}
+
 # Setup environment
 setup_environment() {
     log "Setting up test environment..."
@@ -240,6 +376,88 @@ start_twin_service() {
     fi
 }
 
+# Start Verification Service
+start_verification_service() {
+    log "Starting Verification Service..."
+
+    cd "$PROJECT_ROOT/verification-service"
+
+    # Set GLEIF_ROOT_AID from generated GLEIF inception event deterministically
+    local gleif_aid
+    gleif_aid=$(jq -r '.i' "$PROJECT_ROOT/gleif-frontend/public/.well-known/keri/gleif-incept.json" 2>/dev/null || echo "")
+    if [ -z "$gleif_aid" ]; then
+        log "❌ Failed to extract GLEIF_ROOT_AID from gleif-incept.json"
+    else
+        log "Using GLEIF_ROOT_AID from gleif-incept.json: $gleif_aid"
+    fi
+
+    # Start verification service in background with mandatory GLEIF_ROOT_AID
+    source venv/bin/activate && PORT=5001 GLEIF_ROOT_AID="$gleif_aid" python3 app.py >> "$LOG_FILE" 2>&1 &
+    VERIFICATION_SERVICE_PID=$!
+
+    # Wait for service to be ready
+    if wait_for_service "http://localhost:5001/health" "Verification Service"; then
+        cd "$PROJECT_ROOT"
+        test_result "Verification Service Startup" "PASS" "Verification service started successfully on port 5001"
+    else
+        cd "$PROJECT_ROOT"
+        test_result "Verification Service Startup" "FAIL" "Verification service failed to respond, but continuing tests"
+    fi
+}
+
+# Restart Verification Service after credentials are generated to ensure it boots
+# with a complete, consistent state for this run (deterministic seeding)
+restart_verification_service() {
+    log "Restarting Verification Service with freshly generated credentials..."
+
+    # Stop existing Verification Service if running
+    if [ ! -z "$VERIFICATION_SERVICE_PID" ]; then
+        kill $VERIFICATION_SERVICE_PID 2>/dev/null || true
+        sleep 1
+    fi
+
+    # Ensure port 5001 is free
+    local pids
+    pids=$(lsof -ti tcp:5001 || true)
+    if [ ! -z "$pids" ]; then
+        kill $pids 2>/dev/null || true
+        sleep 1
+    fi
+
+    # Start Verification Service again using the GLEIF AID from this test run
+    cd "$PROJECT_ROOT/verification-service"
+    local gleif_aid
+    gleif_aid=$(jq -r '.i' "$PROJECT_ROOT/gleif-frontend/public/.well-known/keri/gleif-incept.json" 2>/dev/null || echo "")
+    if [ -z "$gleif_aid" ]; then
+        log "❌ Failed to extract GLEIF_ROOT_AID from gleif-incept.json"
+    else
+        log "Using GLEIF_ROOT_AID from gleif-incept.json: $gleif_aid"
+    fi
+
+    source venv/bin/activate && PORT=5001 GLEIF_ROOT_AID="$gleif_aid" python3 app.py >> "$LOG_FILE" 2>&1 &
+    VERIFICATION_SERVICE_PID=$!
+
+    # Wait for service to be ready
+    wait_for_service "http://localhost:5001/health" "Verification Service (post-restart)"
+    cd "$PROJECT_ROOT"
+}
+
+# Seed verifier database
+seed_verifier_database() {
+    log "Seeding verifier database with trusted issuer key states..."
+
+    cd "$PROJECT_ROOT/verification-service"
+
+    # Run the database seeding script
+    if source venv/bin/activate && python3 seed-verifier-db.py >> "$LOG_FILE" 2>&1; then
+        cd "$PROJECT_ROOT"
+        test_result "Verifier Database Seeding" "PASS" "Database seeded with GLEIF and QVI key states"
+    else
+        cd "$PROJECT_ROOT"
+        test_result "Verifier Database Seeding" "FAIL" "Failed to seed verifier database"
+    fi
+}
+
 # Start GLEIF POC Frontend
 start_gleif_poc() {
     log "Starting GLEIF POC Frontend..."
@@ -295,6 +513,7 @@ test_did_creation() {
             local existing_did
             existing_did=$(jq -r '.did' twin-wallet.json 2>/dev/null || echo "")
             if [ ! -z "$existing_did" ]; then
+                CREATED_DID="$existing_did"
                 test_result "DID Creation" "PASS" "Using existing DID: $existing_did (network unavailable)"
             else
                 test_result "DID Creation" "FAIL" "No existing DID available and network unreachable"
@@ -313,28 +532,43 @@ test_credential_generation() {
 
     cd "$PROJECT_ROOT/did-management"
 
-    # Generate credentials
-    if [ -f "twin-wallet.json" ]; then
-        local did
-        did=$(jq -r '.did' twin-wallet.json 2>/dev/null || echo "")
+    # Generate credentials using the DID created in test_did_creation
+    if [ ! -z "$CREATED_DID" ]; then
+        chmod +x generate-credentials.sh
+        ./generate-credentials.sh "$CREATED_DID" >> "$LOG_FILE" 2>&1 || error_exit "Credential generation failed"
 
-        if [ ! -z "$did" ]; then
-            chmod +x generate-credentials.sh
-            ./generate-credentials.sh "$did" >> "$LOG_FILE" 2>&1 || error_exit "Credential generation failed"
+        # Detect dynamically generated credentials
+        detect_generated_credentials
 
-            # Check if credential files were created
+        # Check if credential files were created using dynamic detection
+        local keri_dir="$PROJECT_ROOT/gleif-frontend/public/.well-known/keri"
+        local icp_dir="$keri_dir/icp"
+
+        if [ ! -z "$GENERATED_LEGAL_ENTITY_AID" ] && [ ! -z "$GENERATED_CREDENTIAL_SAID" ]; then
+            # Check for dynamically generated files
+            if [ -f "$icp_dir/$GENERATED_LEGAL_ENTITY_AID" ] && \
+               [ -f "$keri_dir/$GENERATED_CREDENTIAL_SAID" ] && \
+               [ -f "$PROJECT_ROOT/gleif-frontend/public/.well-known/did-configuration.json" ]; then
+                if [ "$CREDENTIAL_TYPE" = "real" ]; then
+                    test_result "Credential Generation" "PASS" "Real KERI credential artifacts created with valid cryptographic signatures (AID: $GENERATED_LEGAL_ENTITY_AID, SAID: $GENERATED_CREDENTIAL_SAID)"
+                else
+                    test_result "Credential Generation" "PASS" "Placeholder credential artifacts created (AID: $GENERATED_LEGAL_ENTITY_AID, SAID: $GENERATED_CREDENTIAL_SAID)"
+                fi
+            else
+                test_result "Credential Generation" "FAIL" "One or more dynamically generated credential artifacts missing"
+            fi
+        else
+            # Fallback to checking for placeholder files if dynamic detection failed
             if [ -f "../gleif-frontend/public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid" ] && \
                [ -f "../gleif-frontend/public/.well-known/keri/Edef456_placeholder_credential_said" ] && \
                [ -f "../gleif-frontend/public/.well-known/did-configuration.json" ]; then
-                test_result "Credential Generation" "PASS" "Credential artifacts created (KERI + DID Configuration)"
+                test_result "Credential Generation" "PASS" "Placeholder credential artifacts created (using fallback)"
             else
-                test_result "Credential Generation" "FAIL" "One or more credential artifacts missing"
+                test_result "Credential Generation" "FAIL" "No credential artifacts found"
             fi
-        else
-            test_result "Credential Generation" "FAIL" "No DID found in wallet file"
         fi
     else
-        test_result "Credential Generation" "FAIL" "Wallet file not found"
+        test_result "Credential Generation" "FAIL" "No DID available from previous step"
     fi
 
     cd "$PROJECT_ROOT"
@@ -344,10 +578,106 @@ test_credential_generation() {
 test_api_endpoints() {
     log "Testing API endpoints..."
 
-    # Test Twin Service endpoints
+    # Test Verification Service endpoints
     local api_tests_passed=0
     local api_tests_total=0
 
+    # Test Verification Service health check
+    api_tests_total=$((api_tests_total + 1))
+    if curl -s http://localhost:5001/health | jq -e '.status == "healthy"' > /dev/null 2>&1; then
+        api_tests_passed=$((api_tests_passed + 1))
+        log "✅ Verification Service /health endpoint working"
+    else
+        log "❌ Verification Service /health endpoint failed"
+    fi
+
+    # Test KERI credential verification endpoint
+    api_tests_total=$((api_tests_total + 1))
+
+    # Deterministic payload: Always use the freshly generated legal-entity-credential.json
+    local credential_payload=""
+    local credential_file="$PROJECT_ROOT/gleif-frontend/public/.well-known/keri/legal-entity-credential.json"
+    if [ -f "$credential_file" ]; then
+        log "Loading real credential from filesystem: $credential_file"
+        credential_payload=$(jq -c '{credential: .}' "$credential_file" 2>/dev/null || echo "")
+        if [ ! -z "$credential_payload" ]; then
+            log "Successfully loaded real credential data for API test"
+        else
+            log "Failed to parse credential file, falling back to placeholders"
+        fi
+    else
+        log "Credential file not found at $credential_file, falling back"
+    fi
+
+    # If we couldn't load real credential data, construct payload with detected values or placeholders
+    if [ -z "$credential_payload" ]; then
+        local credential_d=""
+        local credential_i=""
+        local credential_iota_did=""
+        local credential_s=""
+        local credential_p_d=""
+
+        if [ ! -z "$GENERATED_CREDENTIAL_SAID" ] && [ ! -z "$GENERATED_LEGAL_ENTITY_AID" ] && [ ! -z "$GENERATED_IOTA_DID" ]; then
+            credential_d="$GENERATED_CREDENTIAL_SAID"
+            credential_i="$GENERATED_LEGAL_ENTITY_AID"
+            credential_iota_did="$GENERATED_IOTA_DID"
+            # Try to extract schema and signature from the credential file if it exists
+            if [ -f "$PROJECT_ROOT/gleif-frontend/public/.well-known/keri/$GENERATED_CREDENTIAL_SAID" ]; then
+                credential_s=$(jq -r '.s' "$PROJECT_ROOT/gleif-frontend/public/.well-known/keri/$GENERATED_CREDENTIAL_SAID" 2>/dev/null || echo "E123_SCHEMA_ID_PLACEHOLDER")
+                credential_p_d=$(jq -r '.p[0].d // .p.d' "$PROJECT_ROOT/gleif-frontend/public/.well-known/keri/$GENERATED_CREDENTIAL_SAID" 2>/dev/null || echo "QVI_SIGNATURE_SAID_SIMULATED")
+            else
+                credential_s="E123_SCHEMA_ID_PLACEHOLDER"
+                credential_p_d="QVI_SIGNATURE_SAID_SIMULATED"
+            fi
+            if [ "$CREDENTIAL_TYPE" = "real" ]; then
+                log "Using real dynamically generated credentials for API test"
+            else
+                log "Using placeholder dynamically generated credentials for API test"
+            fi
+        else
+            credential_d="Edef456_placeholder_credential_said"
+            credential_i="Eabc123_placeholder_legal_entity_aid"
+            credential_iota_did="did:iota:testnet:0xc0581aa612ed953750e6fd659cb0decae1eed25e2bc03be43978f589103fb426"
+            credential_s="E123_SCHEMA_ID_PLACEHOLDER"
+            credential_p_d="QVI_SIGNATURE_SAID_SIMULATED"
+            log "Using static placeholder credentials for API test"
+        fi
+
+        credential_payload="{
+            \"credential\": {
+                \"v\": \"ACDC10JSON00017a_\",
+                \"d\": \"$credential_d\",
+                \"i\": \"$credential_i\",
+                \"s\": \"$credential_s\",
+                \"a\": {
+                    \"alsoKnownAs\": [
+                        \"$credential_iota_did\"
+                    ]
+                },
+                \"p\": {
+                    \"d\": \"$credential_p_d\"
+                }
+            }
+        }"
+    fi
+    # Retry /verify up to 3 times to avoid transient startup races
+    local vr_ok=0
+    for attempt in 1 2 3; do
+        if echo "$credential_payload" | curl -s -X POST http://localhost:5001/verify \
+            -H "Content-Type: application/json" \
+            -d @- | jq -e '.success == true and .verified == true' > /dev/null 2>&1; then
+            vr_ok=1; break
+        fi
+        sleep 2
+    done
+    if [ $vr_ok -eq 1 ]; then
+        api_tests_passed=$((api_tests_passed + 1))
+        log "✅ Verification Service /verify endpoint working"
+    else
+        log "❌ Verification Service /verify endpoint failed"
+    fi
+
+    # Test Twin Service endpoints
     # Test DID creation endpoint (only if network is available)
     api_tests_total=$((api_tests_total + 1))
     if check_iota_network; then
@@ -370,6 +700,13 @@ test_api_endpoints() {
     if [ -f "did-management/twin-wallet.json" ]; then
         local did
         did=$(jq -r '.did' did-management/twin-wallet.json 2>/dev/null || echo "")
+
+        # If we have dynamically generated IOTA DID, use that for testing
+        if [ ! -z "$GENERATED_IOTA_DID" ]; then
+            did="$GENERATED_IOTA_DID"
+            log "Using dynamically generated IOTA DID for resolution test: $did"
+        fi
+
         if [ ! -z "$did" ]; then
             if curl -s "http://localhost:3001/resolve-did/$did" | jq -e '.success' > /dev/null 2>&1; then
                 api_tests_passed=$((api_tests_passed + 1))
@@ -386,9 +723,25 @@ test_api_endpoints() {
 
     # Test Frontend verification endpoint
     api_tests_total=$((api_tests_total + 1))
-    if curl -s -X POST http://localhost:3000/api/verify \
-        -H "Content-Type: application/json" \
-        -d '{"did":"test","verificationType":"domain-linkage"}' | jq -e '.status' > /dev/null 2>&1; then
+
+    # Use dynamically detected DID if available
+    local test_did="test"
+    if [ ! -z "$GENERATED_IOTA_DID" ]; then
+        test_did="$GENERATED_IOTA_DID"
+        log "Using dynamically generated DID for frontend verification test: $test_did"
+    fi
+
+    # Retry frontend /api/verify up to 3 times
+    local fe_ok=0
+    for attempt in 1 2 3; do
+        if curl -s -X POST http://localhost:3000/api/verify \
+            -H "Content-Type: application/json" \
+            -d "{\"did\":\"$test_did\",\"verificationType\":\"domain-linkage\"}" | jq -e '.status' > /dev/null 2>&1; then
+            fe_ok=1; break
+        fi
+        sleep 2
+    done
+    if [ $fe_ok -eq 1 ]; then
         api_tests_passed=$((api_tests_passed + 1))
         log "✅ Frontend /api/verify endpoint working"
     else
@@ -421,9 +774,10 @@ test_verification_flow() {
             status=$(echo "$response" | jq -r '.result.status' 2>/dev/null || echo "ERROR")
 
             if [ "$status" = "VERIFIED" ]; then
+                log "Full verification response: $response"
                 local attestation_did nft_id
-                attestation_did=$(echo "$response" | jq -r '.attestationDid' 2>/dev/null || echo "")
-                nft_id=$(echo "$response" | jq -r '.nftId' 2>/dev/null || echo "")
+                attestation_did=$(echo "$response" | jq -r '.result.attestationDid' 2>/dev/null || echo "")
+                nft_id=$(echo "$response" | jq -r '.result.nftId' 2>/dev/null || echo "")
 
                 test_result "Verification Flow" "PASS" "DID verified with attestation DID: $attestation_did, NFT: $nft_id"
             elif [ "$status" = "NOT VERIFIED" ]; then
@@ -458,9 +812,10 @@ test_explorer_links() {
             status=$(echo "$response" | jq -r '.result.status' 2>/dev/null || echo "ERROR")
 
             if [ "$status" = "VERIFIED" ]; then
+                log "Full explorer links response: $response"
                 local attestation_did nft_id
-                attestation_did=$(echo "$response" | jq -r '.attestationDid' 2>/dev/null || echo "")
-                nft_id=$(echo "$response" | jq -r '.nftId' 2>/dev/null || echo "")
+                attestation_did=$(echo "$response" | jq -r '.result.attestationDid' 2>/dev/null || echo "")
+                nft_id=$(echo "$response" | jq -r '.result.nftId' 2>/dev/null || echo "")
 
                 # Test explorer link generation (we can't actually test the links opening, but we can test the logic)
                 local explorer_tests_passed=0
@@ -562,15 +917,17 @@ generate_report() {
 ### Service Startup
 - ✅ HashiCorp Vault started (Port 8200)
 - ✅ Twin Service started (Port 3001)
+- ✅ Verification Service started (Port 5001)
 - ✅ GLEIF POC Frontend started (Port 3000)
 
 ### DID Management
 - $([ -f "did-management/twin-wallet.json" ] && echo "✅" || echo "❌") DID wallet available
-- $([ -f "gleif-frontend/public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid" ] && echo "✅" || echo "❌") KERI credentials generated
-- $([ -f "gleif-frontend/public/.well-known/keri/Edef456_placeholder_credential_said" ] && echo "✅" || echo "❌") Credential files present
+- $({ [ ! -z "$GENERATED_LEGAL_ENTITY_AID" ] && [ -f "gleif-frontend/public/.well-known/keri/icp/$GENERATED_LEGAL_ENTITY_AID" ]; } && echo "✅" || echo "❌") KERI ICP generated $([ ! -z "$GENERATED_LEGAL_ENTITY_AID" ] && echo "($GENERATED_LEGAL_ENTITY_AID)" || echo "(placeholder)")
+- $({ [ ! -z "$GENERATED_CREDENTIAL_SAID" ] && [ -f "gleif-frontend/public/.well-known/keri/$GENERATED_CREDENTIAL_SAID" ]; } && echo "✅" || echo "❌") Credential files present $([ ! -z "$GENERATED_CREDENTIAL_SAID" ] && echo "($GENERATED_CREDENTIAL_SAID)" || echo "(placeholder)") $([ "$CREDENTIAL_TYPE" = "real" ] && echo "- **REAL CREDENTIALS WITH VALID SIGNATURES**" || echo "- placeholder credentials")
 - $([ -f "gleif-frontend/public/.well-known/did-configuration.json" ] && echo "✅" || echo "❌") DID Configuration published
 
 ### API Testing
+- ✅ Verification Service endpoints responding
 - ✅ Twin Service endpoints responding
 - ✅ Frontend API endpoints working
 - ✅ Verification flow functional
@@ -582,8 +939,8 @@ generate_report() {
 
 ### Build Testing
 - ✅ Frontend build successful
-- ✅ Credential files present
-- ✅ Production deployment ready
+- $([ "$CREDENTIAL_TYPE" = "real" ] && echo "✅ Real KERI credentials with cryptographic signatures" || echo "⚠️ Placeholder credentials (no real signatures)") present
+- $([ "$CREDENTIAL_TYPE" = "real" ] && echo "✅ Production deployment ready with real credentials" || echo "⚠️ Production deployment ready with placeholder credentials")
 
 ## Network Resilience
 
@@ -630,10 +987,23 @@ main() {
     setup_environment
     start_vault
     start_twin_service
+    start_verification_service
     start_gleif_poc
 
     test_did_creation || log "DID creation test failed, continuing..."
     test_credential_generation || log "Credential generation test failed, continuing..."
+
+    # Seed the verifier database after credential generation
+    seed_verifier_database || log "Verifier database seeding failed, continuing..."
+
+    # Detect generated credentials after credential generation for use in API tests
+    detect_generated_credentials
+
+    # Restart the Verification Service so it starts with the fresh artifacts
+    restart_verification_service
+
+    # Give the Verification Service a moment to settle before API tests
+    sleep 2
     test_api_endpoints || log "API endpoints test failed, continuing..."
     test_verification_flow || log "Verification flow test failed, continuing..."
     test_explorer_links || log "Explorer links test failed, continuing..."

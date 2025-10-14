@@ -34,13 +34,13 @@ app.get("/", (req, res) => {
 // POST /create-did
 app.post("/create-did", async (req, res) => {
   try {
-    const { controller } = req.body;
+    const { controller, domainOrigin } = req.body;
     const {
       document,
       address,
       controllerIdentity,
       defaultVerificationMethodId,
-    } = await createDIDDocument(controller);
+    } = await createDIDDocument(controller, domainOrigin);
     res.json({
       success: true,
       did: document,

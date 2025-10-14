@@ -17,9 +17,13 @@ import {
 /**
  * Creates a new DID document.
  * @param controllerIdentity - Optional identity for the controller
+ * @param domainOrigin - Optional domain origin to add LinkedDomains service
  * @returns Promise resolving to the created DID document and associated address
  */
-export async function createDIDDocument(controllerIdentity?: string): Promise<{
+export async function createDIDDocument(
+  controllerIdentity?: string,
+  domainOrigin?: string
+): Promise<{
   document: IDidDocument;
   address: string;
   controllerIdentity: string;
@@ -141,6 +145,28 @@ export async function createDIDDocument(controllerIdentity?: string): Promise<{
       "Default verification method id",
       defaultVerificationMethodId || "<none>"
     );
+
+    // Add LinkedDomains service if domainOrigin is provided
+    if (domainOrigin) {
+      console.log(
+        `🌐 Adding LinkedDomains service for origin: ${domainOrigin}`
+      );
+      try {
+        await upsertLinkedDomainsService(
+          controllerIdentity,
+          resolvedDocument.id,
+          domainOrigin
+        );
+        console.log(
+          "✅ LinkedDomains service added successfully during DID creation"
+        );
+      } catch (error) {
+        console.error(
+          "⚠️ Failed to add LinkedDomains service during DID creation:",
+          error
+        );
+      }
+    }
 
     return {
       document: resolvedDocument,

@@ -4,9 +4,9 @@
   "description": "GLEIF POC Monorepo - vLEI ↔ TWIN ID Linkage Verifier",
   "private": true,
   "scripts": {
-    "install:all": "npm install && cd gleif-frontend && npm install && cd ../twin-service && npm install && cd ../did-management && npm install",
+    "install:all": "npm install && cd gleif-frontend && npm install && cd ../twin-service && npm install && cd ../did-management && npm install && cd ../verification-service && python3 -m venv venv && source venv/bin/activate && python3 -m pip install -r requirements.txt && cd ../did-management && python3 -m venv venv && source venv/bin/activate && python3 -m pip install git+https://github.com/WebOfTrust/keripy.git",
     "dev": "npm run install:all && npm run dev:vault",
-    "dev:vault": "docker run -d --name vault-dev -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=root hashicorp/vault server -dev && cd twin-service && npm run start:vault & cd gleif-frontend && npm run dev",
+    "dev:vault": "docker run -d --name vault-dev -p 8200:8200 -e VAULT_DEV_ROOT_TOKEN_ID=root hashicorp/vault server -dev && cd verification-service && source venv/bin/activate && python3 app.py & cd twin-service && npm run start:vault & cd gleif-frontend && npm run dev",
     "test:e2e": "./test-e2e.sh",
     "clean": "cd gleif-frontend && rm -rf .next node_modules && cd ../twin-service && rm -rf node_modules && cd ../did-management && rm -rf node_modules && rm -rf node_modules",
     "build": "cd gleif-frontend && npm run build",

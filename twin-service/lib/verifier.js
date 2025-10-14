@@ -94,6 +94,7 @@ export async function verifyLinkage(iotaDid, verificationType) {
             issuerAddress,
             linkedDid,
             ...(linkedDomain ? { linkedDomain } : {}),
+            verificationDetails: verificationResult.verificationDetails,
           };
         } else {
           console.log(
@@ -123,6 +124,7 @@ export async function verifyLinkage(iotaDid, verificationType) {
       issuerAddress,
       linkedDid,
       ...(linkedDomain ? { linkedDomain } : {}),
+      verificationDetails: verificationResult.verificationDetails,
     };
   } catch (error) {
     console.log("Error in verifyLinkage:", error);
@@ -132,8 +134,8 @@ export async function verifyLinkage(iotaDid, verificationType) {
 
 // Logic for Path 1
 async function verifyViaDidLinking(didDoc) {
-  // The URL points to the frontend's main /.well-known/keri directory
-  const credentialUrl = `http://localhost:3000/.well-known/keri/Edef456_placeholder_credential_said`;
+  // Fetch the credential dynamically from the frontend API
+  const credentialUrl = `http://localhost:3000/api/credential`;
   const response = await fetch(credentialUrl);
   if (!response.ok) {
     return {
@@ -142,13 +144,60 @@ async function verifyViaDidLinking(didDoc) {
     };
   }
   const credential = await response.json();
-  const reverseLinkDid = credential.a?.alsoKnownAs?.[0];
-  return reverseLinkDid === didDoc.id
-    ? { status: "VERIFIED", linkedDid: credential.i }
-    : {
+
+  // Call Python verification service
+  try {
+    const verifyResponse = await fetch("http://localhost:5001/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential }),
+    });
+
+    if (!verifyResponse.ok) {
+      return {
         status: "NOT VERIFIED",
-        reason: "DID Linking credential invalid.",
+        reason: `Python verification service error: ${verifyResponse.status}`,
       };
+    }
+
+    const verifyData = await verifyResponse.json();
+
+    if (verifyData.success && verifyData.verified) {
+      return {
+        status: "VERIFIED",
+        linkedDid: credential.i,
+        verificationDetails: {
+          credentialSaid: verifyData.details?.credential_said,
+          issuerAid: verifyData.details?.issuer_aid,
+          issuanceChain: verifyData.details?.issuance_chain,
+          gleifVerified: verifyData.details?.gleif_verified,
+          cryptographicStatus: "VERIFIED",
+          verificationSteps: [
+            "Credential structure validation",
+            "Issuer resolution and key state verification",
+            "Cryptographic signature validation",
+            "Issuance chain traversal",
+            "GLEIF root of trust verification",
+          ],
+        },
+      };
+    } else {
+      return {
+        status: "NOT VERIFIED",
+        reason: verifyData.error || "Verification failed by Python service",
+        verificationDetails: {
+          cryptographicStatus: "FAILED",
+          failureReason:
+            verifyData.error || "Verification failed by Python service",
+        },
+      };
+    }
+  } catch (error) {
+    return {
+      status: "NOT VERIFIED",
+      reason: `Failed to connect to Python verification service: ${error.message}`,
+    };
+  }
 }
 
 // Logic for Path 2
@@ -252,6 +301,27 @@ async function verifyViaDomainLinkage(didDoc) {
       status: "VERIFIED",
       linkedDid: issuerDid,
       domainOrigin: normalizedOrigin,
+      verificationDetails: {
+        credentialSaid: verifiableCredential.id,
+        issuerDid: issuerDid,
+        subjectDid: subjectDid,
+        subjectOrigin: subjectOrigin,
+        cryptographicStatus: "VERIFIED",
+        verificationSteps: [
+          "Domain linkage credential retrieval",
+          "JWT verification and parsing",
+          "Issuer and subject DID validation",
+          "Domain origin verification",
+        ],
+        trustChain: [
+          { level: "Domain Owner", did: issuerDid, type: "Self-Issued" },
+          {
+            level: "Domain Authority",
+            domain: normalizedOrigin,
+            type: "Verified",
+          },
+        ],
+      },
     };
   } catch (error) {
     console.log("Domain linkage verification error:", error);

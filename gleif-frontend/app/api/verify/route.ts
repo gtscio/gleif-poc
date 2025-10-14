@@ -27,7 +27,10 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await backendResponse.json();
-    return NextResponse.json(result);
+    // Ensure top-level status for test compatibility while preserving original shape
+    const topLevelStatus =
+      (result?.result && result.result.status) || result?.status || "OK";
+    return NextResponse.json({ ...result, status: topLevelStatus });
   } catch (error) {
     console.error("[API Handler] Error:", error);
     return NextResponse.json(

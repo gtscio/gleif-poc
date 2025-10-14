@@ -21,6 +21,28 @@ export default function Home() {
     issuerAddress?: string;
     linkedDid?: string;
     linkedDomain?: string;
+    verificationDetails?: {
+      credentialSaid?: string;
+      issuerAid?: string;
+      issuanceChain?: Array<{
+        level: string;
+        aid: string;
+        credential_type: string;
+      }>;
+      gleifVerified?: boolean;
+      cryptographicStatus?: string;
+      verificationSteps?: string[];
+      trustChain?: Array<{
+        level: string;
+        did?: string;
+        domain?: string;
+        type: string;
+      }>;
+      issuerDid?: string;
+      subjectDid?: string;
+      subjectOrigin?: string;
+      failureReason?: string;
+    };
   }>({});
   const [verificationType, setVerificationType] = useState("did-linking");
 
@@ -46,6 +68,7 @@ export default function Home() {
         issuerAddress: payload.issuerAddress,
         linkedDid: payload.linkedDid,
         linkedDomain: payload.linkedDomain,
+        verificationDetails: payload.verificationDetails,
       });
     } catch (error) {
       setVerificationStatus("ERROR");
@@ -175,69 +198,251 @@ export default function Home() {
             </div>
             {reason && <p className="text-gray-700">{reason}</p>}
             {verificationStatus === "VERIFIED" && (
-              <div className="mt-4 space-y-2">
-                <h3 className="text-lg font-semibold text-gray-800">
-                  Blockchain Explorer Links
-                </h3>
-                {(blockchainData.linkedDid || blockchainData.linkedDomain) && (
-                  <div className="text-sm text-gray-700 space-y-1">
-                    {blockchainData.linkedDomain && (
-                      <p>
-                        <span className="font-medium">Linked Domain:</span>{" "}
-                        {blockchainData.linkedDomain}
-                      </p>
+              <div className="mt-4 space-y-4">
+                {/* Verification Details Section */}
+                {blockchainData.verificationDetails && (
+                  <div className="space-y-4">
+                    {/* Cryptographic Status */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                        🔐 Cryptographic Verification Status
+                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            blockchainData.verificationDetails
+                              .cryptographicStatus === "VERIFIED"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {blockchainData.verificationDetails
+                            .cryptographicStatus === "VERIFIED"
+                            ? "✅ VERIFIED"
+                            : "❌ FAILED"}
+                        </span>
+                      </div>
+                      {blockchainData.verificationDetails.verificationSteps && (
+                        <div className="mt-3">
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">
+                            Verification Steps Completed:
+                          </h4>
+                          <ul className="text-sm text-gray-600 space-y-1">
+                            {blockchainData.verificationDetails.verificationSteps.map(
+                              (step, index) => (
+                                <li key={index} className="flex items-center">
+                                  <span className="text-green-500 mr-2">✓</span>
+                                  {step}
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Issuance Chain */}
+                    {blockchainData.verificationDetails.issuanceChain && (
+                      <div className="bg-blue-50 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                          🔗 Issuance Chain
+                        </h3>
+                        <div className="space-y-2">
+                          {blockchainData.verificationDetails.issuanceChain.map(
+                            (level, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between bg-white p-3 rounded border"
+                              >
+                                <div>
+                                  <span className="font-medium text-gray-900">
+                                    {level.level}
+                                  </span>
+                                  <span className="text-sm text-gray-600 ml-2">
+                                    ({level.credential_type})
+                                  </span>
+                                </div>
+                                <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                  {level.aid.length > 20
+                                    ? `${level.aid.substring(0, 20)}...`
+                                    : level.aid}
+                                </code>
+                              </div>
+                            )
+                          )}
+                        </div>
+                        {blockchainData.verificationDetails.gleifVerified && (
+                          <div className="mt-3 flex items-center text-green-700">
+                            <span className="text-lg mr-2">🏛️</span>
+                            <span className="font-medium">
+                              GLEIF Root of Trust Verified
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     )}
+
+                    {/* Trust Chain */}
+                    {blockchainData.verificationDetails.trustChain && (
+                      <div className="bg-purple-50 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                          🛡️ Trust Chain
+                        </h3>
+                        <div className="space-y-2">
+                          {blockchainData.verificationDetails.trustChain.map(
+                            (entity, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between bg-white p-3 rounded border"
+                              >
+                                <div>
+                                  <span className="font-medium text-gray-900">
+                                    {entity.level}
+                                  </span>
+                                  <span className="text-sm text-gray-600 ml-2">
+                                    ({entity.type})
+                                  </span>
+                                </div>
+                                <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                  {entity.did || entity.domain}
+                                </code>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Credential Details */}
+                    <div className="bg-yellow-50 p-4 rounded-lg">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                        📋 Credential Details
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {blockchainData.verificationDetails.credentialSaid && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">
+                              Credential SAID:
+                            </span>
+                            <code className="block text-xs bg-white p-2 rounded border mt-1 break-all">
+                              {
+                                blockchainData.verificationDetails
+                                  .credentialSaid
+                              }
+                            </code>
+                          </div>
+                        )}
+                        {blockchainData.verificationDetails.issuerAid && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">
+                              Issuer AID:
+                            </span>
+                            <code className="block text-xs bg-white p-2 rounded border mt-1 break-all">
+                              {blockchainData.verificationDetails.issuerAid}
+                            </code>
+                          </div>
+                        )}
+                        {blockchainData.verificationDetails.issuerDid && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">
+                              Issuer DID:
+                            </span>
+                            <code className="block text-xs bg-white p-2 rounded border mt-1 break-all">
+                              {blockchainData.verificationDetails.issuerDid}
+                            </code>
+                          </div>
+                        )}
+                        {blockchainData.verificationDetails.subjectDid && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">
+                              Subject DID:
+                            </span>
+                            <code className="block text-xs bg-white p-2 rounded border mt-1 break-all">
+                              {blockchainData.verificationDetails.subjectDid}
+                            </code>
+                          </div>
+                        )}
+                        {blockchainData.verificationDetails.subjectOrigin && (
+                          <div>
+                            <span className="text-sm font-medium text-gray-700">
+                              Subject Origin:
+                            </span>
+                            <code className="block text-xs bg-white p-2 rounded border mt-1 break-all">
+                              {blockchainData.verificationDetails.subjectOrigin}
+                            </code>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
-                <div className="space-y-1">
-                  {blockchainData.originalDid && (
-                    <button
-                      onClick={() =>
-                        openExplorerUrl(
-                          generateExplorerLink(blockchainData.originalDid!)
-                        )
-                      }
-                      className="block w-full text-left px-3 py-2 bg-blue-50 hover:bg-blue-100 rounded-md text-blue-700 hover:text-blue-800 transition-colors"
-                    >
-                      🔗 View Original DID Document
-                    </button>
+
+                {/* Blockchain Explorer Links */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">
+                    🔍 Blockchain Explorer Links
+                  </h3>
+                  {(blockchainData.linkedDid ||
+                    blockchainData.linkedDomain) && (
+                    <div className="text-sm text-gray-700 space-y-1 mb-3">
+                      {blockchainData.linkedDomain && (
+                        <p>
+                          <span className="font-medium">Linked Domain:</span>{" "}
+                          {blockchainData.linkedDomain}
+                        </p>
+                      )}
+                    </div>
                   )}
-                  {blockchainData.attestationDid && (
-                    <button
-                      onClick={() =>
-                        openExplorerUrl(
-                          generateExplorerLink(blockchainData.attestationDid!)
-                        )
-                      }
-                      className="block w-full text-left px-3 py-2 bg-blue-50 hover:bg-blue-100 rounded-md text-blue-700 hover:text-blue-800 transition-colors"
-                    >
-                      🔗 View Attestation DID Document
-                    </button>
-                  )}
-                  {blockchainData.nftId && (
-                    <button
-                      onClick={() =>
-                        openExplorerUrl(
-                          generateExplorerLink(blockchainData.nftId!)
-                        )
-                      }
-                      className="block w-full text-left px-3 py-2 bg-green-50 hover:bg-green-100 rounded-md text-green-700 hover:text-green-800 transition-colors"
-                    >
-                      🖼️ View NFT Attestation
-                    </button>
-                  )}
-                  {blockchainData.issuerAddress && (
-                    <button
-                      onClick={() =>
-                        openExplorerUrl(
-                          getAddressExplorerUrl(blockchainData.issuerAddress!)
-                        )
-                      }
-                      className="block w-full text-left px-3 py-2 bg-purple-50 hover:bg-purple-100 rounded-md text-purple-700 hover:text-purple-800 transition-colors"
-                    >
-                      👛 View Issuer Wallet Address
-                    </button>
-                  )}
+                  <div className="space-y-1">
+                    {blockchainData.originalDid && (
+                      <button
+                        onClick={() =>
+                          openExplorerUrl(
+                            generateExplorerLink(blockchainData.originalDid!)
+                          )
+                        }
+                        className="block w-full text-left px-3 py-2 bg-blue-50 hover:bg-blue-100 rounded-md text-blue-700 hover:text-blue-800 transition-colors"
+                      >
+                        🔗 View Original DID Document
+                      </button>
+                    )}
+                    {blockchainData.attestationDid && (
+                      <button
+                        onClick={() =>
+                          openExplorerUrl(
+                            generateExplorerLink(blockchainData.attestationDid!)
+                          )
+                        }
+                        className="block w-full text-left px-3 py-2 bg-blue-50 hover:bg-blue-100 rounded-md text-blue-700 hover:text-blue-800 transition-colors"
+                      >
+                        🔗 View Attestation DID Document
+                      </button>
+                    )}
+                    {blockchainData.nftId && (
+                      <button
+                        onClick={() =>
+                          openExplorerUrl(
+                            generateExplorerLink(blockchainData.nftId!)
+                          )
+                        }
+                        className="block w-full text-left px-3 py-2 bg-green-50 hover:bg-green-100 rounded-md text-green-700 hover:text-green-800 transition-colors"
+                      >
+                        🖼️ View NFT Attestation
+                      </button>
+                    )}
+                    {blockchainData.issuerAddress && (
+                      <button
+                        onClick={() =>
+                          openExplorerUrl(
+                            getAddressExplorerUrl(blockchainData.issuerAddress!)
+                          )
+                        }
+                        className="block w-full text-left px-3 py-2 bg-purple-50 hover:bg-purple-100 rounded-md text-purple-700 hover:text-purple-800 transition-colors"
+                      >
+                        👛 View Issuer Wallet Address
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

@@ -8,12 +8,17 @@ async function createIdentity() {
   console.log("🚀 Creating a new TWIN ID...");
 
   try {
-    // Call the twin-service API to create a real DID
+    const domainOrigin = "http://localhost:3000";
+
+    // Call the twin-service API to create a real DID with LinkedDomains service
     const response = await fetch("http://localhost:3001/create-did", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        domainOrigin,
+      }),
     });
 
     if (!response.ok) {
