@@ -46,6 +46,207 @@ graph TD
     I -->|consumed at startup| H
 ```
 
+## Decentralized Identity Lifecycle (E2E)
+
+This project implements an end-to-end decentralized identity lifecycle across our services: `gleif-frontend` (Next.js), `twin-service` (Express), `verification-service` (Flask/KERI), `did-management` scripts, and the IOTA testnet with optional Vault integration. The flow covers DID creation, blockchain registration, credential issuance, third‑party verification requests, validation, and on‑chain attestation.
+
+```mermaid
+flowchart LR
+  %% Actors
+  U["User / DID Holder"]
+  Iss["Issuer (QVI)"]
+  Ver["Verifier / Relying Party"]
+  Res["Resolver / Registry"]
+  G["GLEIF Root / KERI DB"]
+
+  subgraph FE[gleif-frontend (Next.js)]
+    FE_API[/POST /api/verify/]
+    FE_CRED[/GET /api/credential/]
+    FE_HOST[[Hosts .well-known/did-configuration.json]]
+  end
+
+  subgraph TS[twin-service (Express)]
+    TS_VERIFY[/POST /verify/]
+    TS_CREATE_DID[/POST /create-did/]
+    TS_MINT[/POST /mint-nft/]
+    TS_LINK_DOMAIN[/POST /link-domain/]
+    TS_DOMAIN_CRED[/POST /domain-credential/]
+    ALT_RES[Alt DID resolvers (did:web, did:ethr)]
+  end
+
+  subgraph PY[verification-service (Flask/KERI)]
+    PY_VERIFY[/POST /verify (KERI ACDC)/]
+    STEP1[[1) Structure]]
+    STEP2[[2) Resolution]]
+    STEP3[[3) Signatures]]
+    STEP4[[4) Issuance chain]]
+    STEP5[[5) GLEIF root]]
+  end
+
+  subgraph DM[did-management/]
+    MANAGE[[manage-did.js]]
+    GENC[[generate-credentials.sh]]
+  end
+
+  subgraph NET[External Networks]
+    IOTA[(IOTA testnet)]
+    VAULT[(HashiCorp Vault)]
+    DOMAIN[(Domain: /.well-known/did-configuration.json)]
+  end
+
+  %% Preparation & DID creation
+  U -->|create DID| MANAGE
+  MANAGE --> IOTA
+  GENC --> FE_HOST
+  GENC --> KERI[[gleif-incept.json, qvi-credential.json, habitats.json]]
+  KERI --> PY_VERIFY
+  Iss -->|issues KERI VC| GENC
+
+  %% Verification request
+  Ver -->|request verification| FE_API
+  FE_API --> TS_VERIFY
+  TS_VERIFY -->|resolve DID| IOTA
+  TS_VERIFY --> DEC{{verificationType?}}
+  DEC -->|domain-linkage| DL[Domain Linkage Path]
+  DEC -->|did-linking| DLINK[DID Linking Path]
+
+  %% Domain Linkage Path
+  DL --> FE_HOST
+  DL -->|fetch| DOMAIN
+  DL -->|linked_dids JWT| TS_VERIFY
+  TS_VERIFY --> DL_OK{JWT valid & origin match?}
+  DL_OK -->|yes| POST_ATT[On-chain attestation]
+  DL_OK -->|no| ERR_DL[[Fail: invalid/missing JWT, origin mismatch, network error]]
+
+  %% DID Linking Path (KERI ACDC)
+  DLINK --> FE_CRED
+  FE_CRED --> TS_VERIFY
+  TS_VERIFY --> PY_VERIFY
+  PY_VERIFY --> STEP1 --> STEP2 --> STEP3 --> STEP4 --> STEP5
+  STEP5 --> KERI_OK{All steps pass?}
+  KERI_OK -->|yes| POST_ATT
+  KERI_OK -->|no| ERR_KERI[[Fail: bad structure, issuer unresolved, sig invalid, chain broken, GLEIF mismatch]]
+
+  %% Attestation & outputs
+  POST_ATT --> TS_CREATE_DID --> IOTA
+  TS_CREATE_DID --> TS_MINT --> IOTA
+  TS_MINT -->|NFT id/URL| FE_API --> Ver
+
+  %% Interop & alt flows
+  TS_VERIFY -.-> ALT_RES
+  TS_VERIFY -.-> ERR_NET[[Edge: resolver down, network outage]]
+  PY_VERIFY -.-> ERR_REV[[Edge: revoked credential]]
+  FE_API -.-> OAUTH[[Bridge: OIDC/SIOP or SAML assertion]]
+  OAUTH --> Ver
+
+  %% Trust anchors
+  STEP2 --> G
+  STEP5 --> G
+```
+
+### Step-by-step (mapped to repo)
+
+- **DID creation and registration**: `did-management/manage-did.js` creates a DID on IOTA via `twin-service` connectors; DID doc anchored on IOTA. Vault secures keys when enabled.
+- **Credential generation & publishing**: `did-management/generate-credentials.sh` produces KERI artifacts (`gleif-incept.json`, `qvi-credential.json`, `habitats.json`) and publishes Domain Linkage (`.well-known/did-configuration.json`) via `gleif-frontend`. `verification-service` seeds/refreshes from these files on each request.
+- **Third‑party verification request**: Verifier calls `gleif-frontend` `POST /api/verify` → proxies to `twin-service` `POST /verify` with `did` and `verificationType`.
+- **Domain Linkage path (self‑hosted)**: Resolve `LinkedDomains` service from DID doc; fetch `.well-known/did-configuration.json`; verify JWT; check issuer/subject/origin.
+- **DID Linking path (delegated/QVI)**: `gleif-frontend` fetches KERI credential; `twin-service` calls `verification-service` `POST /verify`. KERI steps: structure → issuer resolution → signature validation → issuance chain (LE→QVI→GLEIF) → GLEIF root check.
+- **Attestation on IOTA (both paths)**: `twin-service` mints an Attestation DID and NFT with immutable DID doc + verification details.
+- **Interop bridges (optional)**: Verified result can mint OIDC tokens or SAML assertions for SSO integration (future extension).
+
+### Actors & responsibilities
+
+- **User (Holder)**: controls TWIN DID; initiates verifications; can self‑host domain config.
+- **Issuer (QVI)**: issues KERI VC linking vLEI and TWIN DID.
+- **Verifier (Relying Party)**: requests and consumes verification; may accept OIDC/SAML bridge.
+- **Resolver/Registry**: IOTA network resolution; alt methods via resolver connectors.
+- **Registry/Trust anchor**: GLEIF root state validated by KERI DB.
+
+### Errors, exceptions, edge cases (non‑exhaustive)
+
+- DID resolution failures (network, malformed DID, unsupported method).
+- Credential revocation or supersession.
+- GLEIF AID mismatch or missing issuer state.
+- Domain config fetch errors (CORS, TLS, 404) or JWT invalid.
+- Vault unavailable; faucet limits (testnet); insufficient funds for NFT.
+- Privacy breaches: over‑sharing; mitigate via selective disclosure.
+
+### Standards, tools, protocols
+
+- W3C DID Core; methods: `did:iota`, `did:web`, `did:ethr` (extensible via connectors).
+- W3C Verifiable Credentials Data Model.
+- KERI / ACDC for cryptographic chaining and SAIDs.
+- DIDComm v2 (Aries/DIF) for secure P2P presentation (optional path).
+- Selective disclosure / ZKPs (e.g., BBS+, CL, or SNARK‑based proofs) for privacy.
+- OIDC/SIOP v2, OIDC4VCI, SAML 2.0 for bridge to existing identity systems.
+
+### Compliance highlights (GDPR/eIDAS)
+
+- Data minimization: store minimal immutable data on‑chain; avoid PII.
+- User consent and transparency for attestations and on‑chain writes.
+- Revocation checking and audit logs; align with eIDAS for trust services.
+
+### Verification Paths (Detail)
+
+```mermaid
+flowchart LR
+  START([Verification Request]) --> CHOOSE{{Choose Path}}
+
+  %% Path A: Self-sovereign Domain Linkage
+  CHOOSE -->|Domain Linkage (JWT)| A1[Fetch /.well-known/did-configuration.json]
+  A1 --> A2[Verify JWT signature]
+  A2 --> A3{issuer/subject DID match?}
+  A3 -->|yes| A4{origin matches LinkedDomains?}
+  A4 -->|yes| AOK([Verified])
+  A4 -->|no| AFAIL([Reject: origin mismatch])
+  A3 -->|no| AFAIL2([Reject: subject/issuer mismatch])
+
+  %% Path B: Delegated (KERI ACDC)
+  CHOOSE -->|DID Linking (QVI)| B1[Obtain ACDC credential]
+  B1 --> B2[Validate structure]
+  B2 --> B3[Resolve issuer AID]
+  B3 --> B4[Verify signatures]
+  B4 --> B5[Traverse LE→QVI→GLEIF chain]
+  B5 --> B6{GLEIF root trusted?}
+  B6 -->|yes| BOK([Verified])
+  B6 -->|no| BFAIL([Reject: trust anchor mismatch])
+
+  %% Path C: ZKP / Selective Disclosure (optional)
+  CHOOSE -->|ZKP / SD| C1[Prover derives proof (e.g., BBS+, CL)]
+  C1 --> C2[Verifier checks proof vs schema & issuer registry]
+  C2 --> COK{Proof valid?}
+  COK -->|yes| COK2([Verified])
+  COK -->|no| CFAIL([Reject: proof invalid])
+
+  %% Path D: DIDComm (optional)
+  CHOOSE -->|DIDComm v2| D1[Establish secure channel]
+  D1 --> D2[Present VC / proof]
+  D2 --> DOK{Valid per chosen method?}
+  DOK -->|yes| DOK2([Verified])
+  DOK -->|no| DFAIL([Reject])
+```
+
+Notes for presentation:
+
+- Path A: self‑hosted domain control proofs. Path B: QVI‑anchored trust via KERI.
+- Paths C/D show privacy‑preserving and P2P flows for future extension.
+- Both A and B culminate in an IOTA on‑chain attestation (Attestation DID + NFT).
+
+### Interoperability scenarios
+
+- Cross‑method DID resolution via resolver connectors (e.g., `did:web`, `did:ethr`).
+- Multi‑chain portability: abstracted connector pattern enables swapping networks.
+- Bridges to existing identity systems (OIDC/SIOP, OIDC4VCI, SAML assertions).
+- Decentralized verification without intermediaries via DIDComm where applicable.
+
+### Cross‑references (repo mapping)
+
+- `twin-service/server.js`: `/create-did`, `/mint-nft`, `/verify`, `/link-domain`, `/domain-credential`.
+- `twin-service/lib/verifier.js`: verification branching and attestation minting.
+- `verification-service/app.py`: `POST /verify` and 5 verification steps.
+- `did-management/`: `manage-did.js`, `generate-credentials.sh`.
+- `gleif-frontend/app/api`: proxies and credential endpoint.
+
 ---
 
 ## 🚀 Getting Started
