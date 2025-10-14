@@ -60,45 +60,45 @@ flowchart LR
   G["GLEIF Root / KERI DB"]
 
   subgraph FE["gleif-frontend (Next.js)"]
-    FE_API[POST /api/verify]
-    FE_CRED[GET /api/credential]
-    FE_HOST[[Hosts .well-known/did-configuration.json]]
+    FE_API["POST /api/verify"]
+    FE_CRED["GET /api/credential"]
+    FE_HOST["Hosts .well-known/did-configuration.json"]
   end
 
   subgraph TS["twin-service (Express)"]
-    TS_VERIFY[POST /verify]
-    TS_CREATE_DID[POST /create-did]
-    TS_MINT[POST /mint-nft]
-    TS_LINK_DOMAIN[POST /link-domain]
-    TS_DOMAIN_CRED[POST /domain-credential]
-    ALT_RES[Alt DID resolvers (did:web, did:ethr)]
+    TS_VERIFY["POST /verify"]
+    TS_CREATE_DID["POST /create-did"]
+    TS_MINT["POST /mint-nft"]
+    TS_LINK_DOMAIN["POST /link-domain"]
+    TS_DOMAIN_CRED["POST /domain-credential"]
+    ALT_RES["Alt DID resolvers (did:web, did:ethr)"]
   end
 
   subgraph PY["verification-service (Flask/KERI)"]
-    PY_VERIFY[POST /verify (KERI ACDC)]
-    STEP1[[1) Structure]]
-    STEP2[[2) Resolution]]
-    STEP3[[3) Signatures]]
-    STEP4[[4) Issuance chain]]
-    STEP5[[5) GLEIF root]]
+    PY_VERIFY["POST /verify (KERI ACDC)"]
+    STEP1["1) Structure"]
+    STEP2["2) Resolution"]
+    STEP3["3) Signatures"]
+    STEP4["4) Issuance chain"]
+    STEP5["5) GLEIF root"]
   end
 
   subgraph DM["did-management/"]
-    MANAGE[[manage-did.js]]
-    GENC[[generate-credentials.sh]]
+    MANAGE["manage-did.js"]
+    GENC["generate-credentials.sh"]
   end
 
   subgraph NET["External Networks"]
-    IOTA[(IOTA testnet)]
-    VAULT[(HashiCorp Vault)]
-    DOMAIN[(Domain: /.well-known/did-configuration.json)]
+    IOTA["IOTA testnet"]
+    VAULT["HashiCorp Vault"]
+    DOMAIN["Domain: /.well-known/did-configuration.json"]
   end
 
   %% Preparation & DID creation
   U -->|create DID| MANAGE
   MANAGE --> IOTA
   GENC --> FE_HOST
-  GENC --> KERI[[gleif-incept.json, qvi-credential.json, habitats.json]]
+  GENC --> KERI["gleif-incept.json, qvi-credential.json, habitats.json"]
   KERI --> PY_VERIFY
   Iss -->|issues KERI VC| GENC
 
@@ -106,26 +106,26 @@ flowchart LR
   Ver -->|request verification| FE_API
   FE_API --> TS_VERIFY
   TS_VERIFY -->|resolve DID| IOTA
-  TS_VERIFY --> DEC{verificationType?}
-  DEC -->|domain-linkage| DL[Domain Linkage Path]
-  DEC -->|did-linking| DLINK[DID Linking Path]
+  TS_VERIFY --> DEC{"verificationType?"}
+  DEC -->|domain-linkage| DL["Domain Linkage Path"]
+  DEC -->|did-linking| DLINK["DID Linking Path"]
 
   %% Domain Linkage Path
   DL --> FE_HOST
   DL -->|fetch| DOMAIN
   DL -->|linked_dids JWT| TS_VERIFY
-  TS_VERIFY --> DL_OK{JWT valid & origin match?}
-  DL_OK -->|yes| POST_ATT[On-chain attestation]
-  DL_OK -->|no| ERR_DL[[Fail: invalid/missing JWT, origin mismatch, network error]]
+  TS_VERIFY --> DL_OK{"JWT valid & origin match?"}
+  DL_OK -->|yes| POST_ATT["On-chain attestation"]
+  DL_OK -->|no| ERR_DL["Fail: invalid/missing JWT, origin mismatch, network error"]
 
   %% DID Linking Path (KERI ACDC)
   DLINK --> FE_CRED
   FE_CRED --> TS_VERIFY
   TS_VERIFY --> PY_VERIFY
   PY_VERIFY --> STEP1 --> STEP2 --> STEP3 --> STEP4 --> STEP5
-  STEP5 --> KERI_OK{All steps pass?}
+  STEP5 --> KERI_OK{"All steps pass?"}
   KERI_OK -->|yes| POST_ATT
-  KERI_OK -->|no| ERR_KERI[[Fail: bad structure, issuer unresolved, sig invalid, chain broken, GLEIF mismatch]]
+  KERI_OK -->|no| ERR_KERI["Fail: bad structure, issuer unresolved, sig invalid, chain broken, GLEIF mismatch"]
 
   %% Attestation & outputs
   POST_ATT --> TS_CREATE_DID --> IOTA
@@ -134,9 +134,9 @@ flowchart LR
 
   %% Interop & alt flows
   TS_VERIFY -.-> ALT_RES
-  TS_VERIFY -.-> ERR_NET[[Edge: resolver down, network outage]]
-  PY_VERIFY -.-> ERR_REV[[Edge: revoked credential]]
-  FE_API -.-> OAUTH[[Bridge: OIDC/SIOP or SAML assertion]]
+  TS_VERIFY -.-> ERR_NET["Edge: resolver down, network outage"]
+  PY_VERIFY -.-> ERR_REV["Edge: revoked credential"]
+  FE_API -.-> OAUTH["Bridge: OIDC/SIOP or SAML assertion"]
   OAUTH --> Ver
 
   %% Trust anchors
