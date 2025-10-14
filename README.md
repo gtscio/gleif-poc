@@ -59,13 +59,13 @@ flowchart LR
   Res["Resolver / Registry"]
   G["GLEIF Root / KERI DB"]
 
-  subgraph FE[gleif-frontend (Next.js)]
+  subgraph FE["gleif-frontend (Next.js)"]
     FE_API[POST /api/verify]
     FE_CRED[GET /api/credential]
     FE_HOST[[Hosts .well-known/did-configuration.json]]
   end
 
-  subgraph TS[twin-service (Express)]
+  subgraph TS["twin-service (Express)"]
     TS_VERIFY[POST /verify]
     TS_CREATE_DID[POST /create-did]
     TS_MINT[POST /mint-nft]
@@ -74,7 +74,7 @@ flowchart LR
     ALT_RES[Alt DID resolvers (did:web, did:ethr)]
   end
 
-  subgraph PY[verification-service (Flask/KERI)]
+  subgraph PY["verification-service (Flask/KERI)"]
     PY_VERIFY[POST /verify (KERI ACDC)]
     STEP1[[1) Structure]]
     STEP2[[2) Resolution]]
@@ -83,12 +83,12 @@ flowchart LR
     STEP5[[5) GLEIF root]]
   end
 
-  subgraph DM[did-management/]
+  subgraph DM["did-management/"]
     MANAGE[[manage-did.js]]
     GENC[[generate-credentials.sh]]
   end
 
-  subgraph NET[External Networks]
+  subgraph NET["External Networks"]
     IOTA[(IOTA testnet)]
     VAULT[(HashiCorp Vault)]
     DOMAIN[(Domain: /.well-known/did-configuration.json)]
