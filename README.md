@@ -62,30 +62,29 @@ flowchart LR
   subgraph FE["gleif-frontend (Next.js)"]
     FE_API["POST /api/verify"]
     FE_CRED["GET /api/credential"]
-    FE_HOST["Hosts .well-known/did-configuration.json"]
+    FE_HOST["Hosts /.well-known/did-configuration.json"]
   end
 
   subgraph TS["twin-service (Express)"]
     TS_VERIFY["POST /verify"]
-    TS_CREATE_DID["POST /create-did"]
+    TS_CREATE["POST /create-did"]
     TS_MINT["POST /mint-nft"]
-    TS_LINK_DOMAIN["POST /link-domain"]
-    TS_DOMAIN_CRED["POST /domain-credential"]
+    TS_LINK["POST /link-domain"]
+    TS_DOMAIN["POST /domain-credential"]
     ALT_RES["Alt DID resolvers (did:web, did:ethr)"]
   end
 
   subgraph PY["verification-service (Flask/KERI)"]
     PY_VERIFY["POST /verify (KERI ACDC)"]
-    STEP1["1) Structure"]
-    STEP2["2) Resolution"]
-    STEP3["3) Signatures"]
-    STEP4["4) Issuance chain"]
-    STEP5["5) GLEIF root"]
+    subgraph KERI["KERI checks"]
+      STEP1["1 Structure"] --> STEP2["2 Resolution"] --> STEP3["3 Signatures"] --> STEP4["4 Issuance chain"] --> STEP5["5 GLEIF root"]
+    end
   end
 
   subgraph DM["did-management/"]
     MANAGE["manage-did.js"]
     GENC["generate-credentials.sh"]
+    KERI_FILES["gleif-incept.json, qvi-credential.json, habitats.json"]
   end
 
   subgraph NET["External Networks"]
@@ -98,8 +97,8 @@ flowchart LR
   U -->|create DID| MANAGE
   MANAGE --> IOTA
   GENC --> FE_HOST
-  GENC --> KERI["gleif-incept.json, qvi-credential.json, habitats.json"]
-  KERI --> PY_VERIFY
+  GENC --> KERI_FILES
+  KERI_FILES --> PY_VERIFY
   Iss -->|issues KERI VC| GENC
 
   %% Verification request
@@ -122,14 +121,14 @@ flowchart LR
   DLINK --> FE_CRED
   FE_CRED --> TS_VERIFY
   TS_VERIFY --> PY_VERIFY
-  PY_VERIFY --> STEP1 --> STEP2 --> STEP3 --> STEP4 --> STEP5
+  PY_VERIFY --> KERI
   STEP5 --> KERI_OK{"All steps pass?"}
   KERI_OK -->|yes| POST_ATT
   KERI_OK -->|no| ERR_KERI["Fail: bad structure, issuer unresolved, sig invalid, chain broken, GLEIF mismatch"]
 
   %% Attestation & outputs
-  POST_ATT --> TS_CREATE_DID --> IOTA
-  TS_CREATE_DID --> TS_MINT --> IOTA
+  POST_ATT --> TS_CREATE --> IOTA
+  TS_CREATE --> TS_MINT --> IOTA
   TS_MINT -->|NFT id/URL| FE_API --> Ver
 
   %% Interop & alt flows
