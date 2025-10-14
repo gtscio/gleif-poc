@@ -13,7 +13,7 @@ This comprehensive testing guide covers the complete end-to-end workflow for the
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 18+
 - Docker (for HashiCorp Vault)
 - Basic understanding of DIDs and blockchain concepts
 - Access to IOTA testnet
@@ -309,26 +309,10 @@ curl http://localhost:5001/health
 **Test KERI credential verification endpoint:**
 
 ```bash
-# Get real credential SAID from generated files
-CREDENTIAL_SAID=$(ls gleif-frontend/public/.well-known/keri/ | grep -v icp)
-LEGAL_ENTITY_AID=$(ls gleif-frontend/public/.well-known/keri/icp/)
-
+jq -c '{credential: .}' ../gleif-frontend/public/.well-known/keri/legal-entity-credential.json > /tmp/payload.json
 curl -X POST http://localhost:5001/verify \
   -H "Content-Type: application/json" \
-  -d '{
-    "credential": {
-      "v": "ACDC10JSON00011c_",
-      "d": "'$CREDENTIAL_SAID'",
-      "i": "'$LEGAL_ENTITY_AID'",
-      "s": "ELsiR2DMX2PwJou3BJrEBNFXjXAa6zC",
-      "a": {
-        "d": "'$CREDENTIAL_SAID'",
-        "i": "did:iota:testnet:0xe682944593311be353aa6e5d4cfb62041e407fc66c43586b31f87fe87be4309f",
-        "dt": "2024-01-01T00:00:00.000000+00:00",
-        "LEI": "5493001KJTIIGC8Y1R17"
-      }
-    }
-  }'
+  -d @/tmp/payload.json
 ```
 
 **Expected Response:**

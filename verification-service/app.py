@@ -65,6 +65,31 @@ def initialize_verifier():
         logger.error(f"Failed to initialize verifier habitat: {str(e)}")
         return False
 
+def refresh_verifier_state():
+    """Ensure verifier is seeded with current artifacts and GLEIF AID."""
+    global GLEIF_ROOT_AID
+    try:
+        from pathlib import Path
+        script_dir = Path(__file__).parent
+        inception_dir = script_dir.parent / "gleif-frontend" / "public" / ".well-known" / "keri"
+
+        # Update GLEIF_ROOT_AID if the inception file changed
+        gleif_incept_path = inception_dir / "gleif-incept.json"
+        if gleif_incept_path.exists():
+            with open(gleif_incept_path, 'r') as f:
+                event_data = json.load(f)
+            new_gleif = event_data.get('i')
+            if new_gleif and new_gleif != GLEIF_ROOT_AID:
+                GLEIF_ROOT_AID = new_gleif
+                logger.info(f"Updated GLEIF_ROOT_AID from artifacts: {GLEIF_ROOT_AID}")
+
+        # Re-seed key states (GLEIF, QVI, LE) using current files
+        seed_verifier_database()
+        return True
+    except Exception as e:
+        logger.warning(f"refresh_verifier_state failed: {str(e)}")
+        return False
+
 def seed_verifier_database():
     """Load inception events into the verifier database"""
     try:
@@ -165,6 +190,9 @@ def verify_credential():
         issuer_aid = data.get('issuer_aid')
 
         logger.info(f"Starting verification for credential: {credential.get('d', 'unknown')}")
+
+        # Ensure verifier is seeded with the latest artifacts (no manual restart required)
+        refresh_verifier_state()
 
         # Perform full verification
         result = verify_acdc_credential(credential, issuer_aid)

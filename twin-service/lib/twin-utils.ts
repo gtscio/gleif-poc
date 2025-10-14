@@ -214,12 +214,23 @@ export async function upsertLinkedDomainsService(
   const serviceId = "linked-domain";
   const fullServiceId = `${did}#${serviceId}`;
 
+  // Pre-check for existing LinkedDomains service and only remove when present
   try {
-    await identityConnector.removeService(controllerIdentity, fullServiceId);
+    const current = await resolveDIDDocument(did);
+    const services = Array.isArray(current?.service) ? current.service : [];
+    const hasLinked = services.some((s: any) => {
+      if (!s) return false;
+      const sid = typeof s.id === "string" ? s.id : "";
+      const types = Array.isArray(s.type) ? s.type : [s.type];
+      return sid.endsWith(`#${serviceId}`) && types.includes("LinkedDomains");
+    });
+    if (hasLinked) {
+      await identityConnector.removeService(controllerIdentity, fullServiceId);
+    }
   } catch (error) {
-    // Ignore missing service errors
+    // Downgrade NotFound to debug
     if (!(error instanceof Error && /notFound/i.test(error.message))) {
-      console.log("⚠️ Failed to remove existing linked domain service:", error);
+      console.log("⚠️ LinkedDomains pre-check/remove warning:", error);
     }
   }
 

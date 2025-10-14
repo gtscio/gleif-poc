@@ -20,12 +20,13 @@ export async function verifyLinkage(iotaDid, verificationType) {
 
     let verificationResult;
     let linkedDid;
+    let linkedAid;
     let linkedDomain;
 
     if (verificationType === "did-linking") {
       console.log("Verifying via DID Linking (Issuer) Path...");
       verificationResult = await verifyViaDidLinking(didDoc);
-      linkedDid = verificationResult.linkedDid;
+      linkedAid = verificationResult.linkedAid;
     } else if (verificationType === "domain-linkage") {
       console.log("Verifying via W3C Domain Linkage (Self-Hosted) Path...");
       verificationResult = await verifyViaDomainLinkage(didDoc);
@@ -64,7 +65,8 @@ export async function verifyLinkage(iotaDid, verificationType) {
     const metadata = {
       type: "verification-attestation",
       originalDid: iotaDid,
-      linkedDid: linkedDid,
+      ...(linkedDid ? { linkedDid } : {}),
+      ...(linkedAid ? { linkedAid } : {}),
       attestationDid: attestationDid.id,
       ...(linkedDomain ? { linkedDomain } : {}),
     };
@@ -92,7 +94,8 @@ export async function verifyLinkage(iotaDid, verificationType) {
             attestationDid: attestationDid.id,
             nftId: nft,
             issuerAddress,
-            linkedDid,
+            ...(linkedDid ? { linkedDid } : {}),
+            ...(linkedAid ? { linkedAid } : {}),
             ...(linkedDomain ? { linkedDomain } : {}),
             verificationDetails: verificationResult.verificationDetails,
           };
@@ -122,7 +125,8 @@ export async function verifyLinkage(iotaDid, verificationType) {
       originalDid: iotaDid,
       attestationDid: attestationDid.id,
       issuerAddress,
-      linkedDid,
+      ...(linkedDid ? { linkedDid } : {}),
+      ...(linkedAid ? { linkedAid } : {}),
       ...(linkedDomain ? { linkedDomain } : {}),
       verificationDetails: verificationResult.verificationDetails,
     };
@@ -165,7 +169,7 @@ async function verifyViaDidLinking(didDoc) {
     if (verifyData.success && verifyData.verified) {
       return {
         status: "VERIFIED",
-        linkedDid: credential.i,
+        linkedAid: credential.i,
         verificationDetails: {
           credentialSaid: verifyData.details?.credential_said,
           issuerAid: verifyData.details?.issuer_aid,

@@ -1,7 +1,5 @@
 # GLEIF vLEI ↔ TWIN ID Linkage Verifier
 
-...
-
 ## 🎯 Clarifying Our Approach: DID Linking vs. Domain Linkage
 
 It's important to be precise about the verification methods this complete implementation provides.
@@ -261,7 +259,7 @@ chmod +x test-e2e.sh && ./test-e2e.sh
 
 ### 🐛 Troubleshooting
 
-- **Ports are busy:** `lsof -ti:3000,3001,8200 | xargs kill -9`
+- **Ports are busy:** `lsof -ti:3000,3001,5001,8200 | xargs -r kill -9 || true`
 - **Vault issues:** `docker logs vault-dev`
 - **Transit Engine issues:** Check Vault logs and ensure transit secrets engine is enabled and the wallet-key exists.
 - **npm fails:** `npm cache clean --force && rm -rf node_modules && npm install`

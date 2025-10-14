@@ -1,8 +1,8 @@
 {
-  "did": "did:iota:testnet:0x592ec51b7eb63d3cad24a9873d89ba4f74ce5dfb08770551ab9424273a54ec34",
-  "address": "0x22480be7909bb9e9f8220a50ff9c49659370e9366de91242df53c27d353a2bd8",
-  "controllerIdentity": "did-1760433928794-pef8f1dy63",
-  "verificationMethodId": "did:iota:testnet:0x592ec51b7eb63d3cad24a9873d89ba4f74ce5dfb08770551ab9424273a54ec34#key-1",
+  "did": "did:iota:testnet:0x01609554eceba7d311c4fb1dd5bd148aeb301b46803f1eefa6cc24c4de553d50",
+  "address": "0x252f007fe4d5b767dc9b50b52a09a3597b65263f52ca771d1e2c985e72fc1319",
+  "controllerIdentity": "did-1760446340360-8i5fr2jufn5",
+  "verificationMethodId": "did:iota:testnet:0x01609554eceba7d311c4fb1dd5bd148aeb301b46803f1eefa6cc24c4de553d50#key-1",
   "alsoKnownAs": [
     "did:webs:localhost:3000:Eabc123_placeholder_legal_entity_aid",
     "did:web:localhost:3000"
