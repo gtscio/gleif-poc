@@ -207,7 +207,7 @@ flowchart LR
   START([Verification Request]):::userAction --> CHOOSE{{Choose Path}}:::decision
 
   %% Path A: Self-sovereign Domain Linkage
-    CHOOSE -->|Domain Linkage (JWT)| A1["Fetch did-configuration.json"]:::apiService
+    CHOOSE -->|"Domain Linkage (JWT)"| A1["Fetch did-configuration.json"]:::apiService
     A1 --> A2[Verify JWT signature]:::apiService
   A2 --> A3{issuer/subject DID match?}:::decision
   A3 -->|yes| A4{origin matches LinkedDomains?}:::decision
@@ -216,7 +216,7 @@ flowchart LR
   A3 -->|no| AFAIL2([Reject: subject/issuer mismatch]):::error
 
   %% Path B: Delegated (KERI ACDC)
-  CHOOSE -->|DID Linking (QVI)| B0[Fetch KERI credential]:::apiService
+  CHOOSE -->|"DID Linking (QVI)"| B0[Fetch KERI credential]:::apiService
   B0 --> B1[Obtain ACDC credential]:::apiService
   B1 --> B2[Validate structure]:::apiService
   B2 --> B3[Resolve issuer AID]:::apiService
@@ -227,7 +227,7 @@ flowchart LR
   B6 -->|no| BFAIL([Reject: trust anchor mismatch]):::error
 
   %% Path C: ZKP / Selective Disclosure (optional)
-  CHOOSE -->|ZKP / SD| C1[Prover derives proof (e.g., BBS+, CL)]:::apiService
+  CHOOSE -->|ZKP / SD| C1["Prover derives proof (e.g., BBS+, CL)"]:::apiService
   C1 --> C2[Verifier checks proof vs schema & issuer registry]:::apiService
   C2 --> COK{Proof valid?}:::decision
   COK -->|yes| COK2([Verified]):::apiService
@@ -239,6 +239,7 @@ flowchart LR
   D2 --> DOK{Valid per chosen method?}:::decision
   DOK -->|yes| DOK2([Verified]):::apiService
   DOK -->|no| DFAIL([Reject]):::error
+```
 
 Notes for presentation:
 
