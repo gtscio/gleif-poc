@@ -52,95 +52,103 @@ This project implements an end-to-end decentralized identity lifecycle across ou
 
 ```mermaid
 flowchart LR
+  %% Define classes
+  classDef actor fill:#4CAF50,color:#ffffff,stroke:#2E7D32,stroke-width:2px
+  classDef issuer fill:#FF9800,color:#ffffff,stroke:#E65100,stroke-width:2px
+  classDef verifier fill:#2196F3,color:#ffffff,stroke:#0D47A1,stroke-width:2px
+  classDef resolver fill:#9C27B0,color:#ffffff,stroke:#6A1B9A,stroke-width:2px
+  classDef decision fill:#F44336,color:#ffffff,stroke:#B71C1C,stroke-width:2px
+  classDef ui fill:#00BCD4,color:#ffffff,stroke:#0097A7,stroke-width:2px
+  classDef api fill:#FF9800,color:#ffffff,stroke:#E65100,stroke-width:2px
+  classDef service fill:#FF9800,color:#ffffff,stroke:#E65100,stroke-width:2px
+  classDef external fill:#9C27B0,color:#ffffff,stroke:#6A1B9A,stroke-width:2px
+  classDef error fill:#9E9E9E,color:#ffffff,stroke:#616161,stroke-width:2px
+
+  %% Legend
+  subgraph Legend [Legend]
+    Actor[Actor]:::actor
+    Issuer[Issuer / QVI]:::issuer
+    Verifier[Verifier]:::verifier
+    Resolver[Resolver]:::resolver
+    Decision[Decision]:::decision
+    UI[UI]:::ui
+    API[API]:::api
+    Service[Service]:::service
+    External[External]:::external
+    Error[Error]:::error
+  end
+
   %% Actors
-  U["User / DID Holder"]
-  Iss["Issuer (QVI)"]
-  Ver["Verifier / Relying Party"]
-  Res["Resolver / Registry"]
-  G["GLEIF Root / KERI DB"]
+  U["User"]:::actor
+  Iss["Issuer / QVI"]:::issuer
+  Ver["Verifier"]:::verifier
+  Res["Resolver"]:::resolver
 
-  subgraph FE["gleif-frontend (Next.js)"]
-    FE_API["POST /api/verify"]
-    FE_CRED["GET /api/credential"]
-    FE_HOST["Hosts /.well-known/did-configuration.json"]
-  end
+  %% Frontend + UI
+  U --> GEN_CHOICE["Choose: Generate DID"]:::decision
+  GEN_CHOICE --> GEN_UI["Generate DID UI\nClick Generate"]:::ui
+  GEN_UI --> API_GEN["API: POST /api/generate-did"]:::api
+  API_GEN --> TS_GEN["Twin Service: /create-did"]:::service
 
-  subgraph TS["twin-service (Express)"]
-    TS_VERIFY["POST /verify"]
-    TS_CREATE["POST /create-did"]
-    TS_MINT["POST /mint-nft"]
-    TS_LINK["POST /link-domain"]
-    TS_DOMAIN["POST /domain-credential"]
-    ALT_RES["Alt DID resolvers (did:web, did:ethr)"]
-  end
+  %% DID creation and registration
+  TS_GEN --> IOTA_REG["IOTA Testnet\n(DID creation & registration)"]:::external
 
-  subgraph PY["verification-service (Flask/KERI)"]
-    PY_VERIFY["POST /verify (KERI ACDC)"]
-    subgraph KERI["KERI checks"]
-      STEP1["1 Structure"] --> STEP2["2 Resolution"] --> STEP3["3 Signatures"] --> STEP4["4 Issuance chain"] --> STEP5["5 GLEIF root"]
-    end
-  end
+  %% Credential generation (after DID creation)
+  API_GEN --> DM_CRED["DID Management: generate-credentials.sh"]:::service
+  DM_CRED --> KERI_GEN["Generate KERI ACDC credentials"]:::service
+  DM_CRED --> DL_GEN["Generate Domain Linkage credential"]:::service
+  DL_GEN --> FE_HOST["Frontend Host: /.well-known/did-configuration.json"]:::service
+  KERI_GEN --> PUBLISH_KERI["Publish KERI artifacts to frontend"]:::service
+  PUBLISH_KERI --> PY_VERIFY["Verification Service: seed KERI DB"]:::service
+  FE_HOST --> DID_READY["DID Generated\n(DID + credentials ready)"]:::decision
+  PY_VERIFY --> DID_READY
 
-  subgraph DM["did-management/"]
-    MANAGE["manage-did.js"]
-    GENC["generate-credentials.sh"]
-    KERI_FILES["gleif-incept.json, qvi-credential.json, habitats.json"]
-  end
+  %% Verification UI flow
+  U --> VERIFY_CHOICE["Choose: Verify Linkage"]:::decision
+  VERIFY_CHOICE --> VERIFY_UI["Verify Linkage UI\nEnter DID, Click Verify"]:::ui
+  VERIFY_UI --> API_VERIFY["API: POST /api/verify"]:::api
+  API_VERIFY --> TS_VERIFY["Twin Service: /verify"]:::service
 
-  subgraph NET["External Networks"]
-    IOTA["IOTA testnet"]
-    VAULT["HashiCorp Vault"]
-    DOMAIN["Domain: /.well-known/did-configuration.json"]
-  end
+  %% Routing decision
+  TS_VERIFY --> DEC{"Verification Type?"}:::decision
+  DEC -->|domain| DL["Domain Linkage Path"]:::service
+  DEC -->|did| DLINK["DID Linking (KERI) Path"]:::service
 
-  %% Preparation & DID creation
-  U -->|create DID| MANAGE
-  MANAGE --> IOTA
-  GENC --> FE_HOST
-  GENC --> KERI_FILES
-  KERI_FILES --> PY_VERIFY
-  Iss -->|issues KERI VC| GENC
-
-  %% Verification request
-  Ver -->|request verification| FE_API
-  FE_API --> TS_VERIFY
-  TS_VERIFY -->|resolve DID| IOTA
-  TS_VERIFY --> DEC{"verificationType?"}
-  DEC -->|domain-linkage| DL["Domain Linkage Path"]
-  DEC -->|did-linking| DLINK["DID Linking Path"]
-
-  %% Domain Linkage Path
+  %% Domain path: fetch host, verify JWT, attest
   DL --> FE_HOST
-  DL -->|fetch| DOMAIN
-  DL -->|linked_dids JWT| TS_VERIFY
-  TS_VERIFY --> DL_OK{"JWT valid & origin match?"}
-  DL_OK -->|yes| POST_ATT["On-chain attestation"]
-  DL_OK -->|no| ERR_DL["Fail: invalid/missing JWT, origin mismatch, network error"]
+  FE_HOST --> VALID{"JWT valid & origin match?"}:::decision
+  VALID -->|yes| ATTEST_DOMAIN["Domain attestation ready"]:::service
+  VALID -->|no| ERR_DL["Domain linkage fail"]:::error
 
-  %% DID Linking Path (KERI ACDC)
-  DLINK --> FE_CRED
-  FE_CRED --> TS_VERIFY
-  TS_VERIFY --> PY_VERIFY
-  PY_VERIFY --> KERI
-  STEP5 --> KERI_OK{"All steps pass?"}
-  KERI_OK -->|yes| POST_ATT
-  KERI_OK -->|no| ERR_KERI["Fail: bad structure, issuer unresolved, sig invalid, chain broken, GLEIF mismatch"]
+  %% DID/KERI path: fetch credential, verify, attest
+  DLINK --> FETCH_CRED["Fetch KERI credential"]:::service
+  FETCH_CRED --> PY_VERIFY["Verification Service: verify credential"]:::service
+  PY_VERIFY --> KERI["KERI Validation\n(signature + chain)"]:::service
+  KERI --> KERI_OK{"KERI checks pass?"}:::decision
+  KERI_OK -->|yes| ATTEST_KERI["KERI attestation ready"]:::service
+  KERI_OK -->|no| ERR_KERI["KERI credential fail"]:::error
 
-  %% Attestation & outputs
-  POST_ATT --> TS_CREATE --> IOTA
-  TS_CREATE --> TS_MINT --> IOTA
-  TS_MINT -->|NFT id/URL| FE_API --> Ver
+  %% Consolidate attestation -> minting -> verifier
+  ATTEST_DOMAIN --> ATTEST["On-chain attestation / ready"]:::service
+  ATTEST_KERI --> ATTEST
+  ATTEST --> CREATE["Twin Service: create attestation & mint"]:::service
+  CREATE --> MINT["Mint NFT on IOTA"]:::service
+  MINT --> IOTA_REG
+  MINT --> Ver["Verifier receives attestation/NFT"]
 
-  %% Interop & alt flows
-  TS_VERIFY -.-> ALT_RES
-  TS_VERIFY -.-> ERR_NET["Edge: resolver down, network outage"]
-  PY_VERIFY -.-> ERR_REV["Edge: revoked credential"]
-  FE_API -.-> OAUTH["Bridge: OIDC/SIOP or SAML assertion"]
-  OAUTH --> Ver
+  %% Integrations, resolver, errors
+  TS_VERIFY -.-> ALT_RES["Alt DID resolvers"]:::resolver
+  TS_VERIFY -.-> ERR_NET["Network / resolver error"]:::error
+  PY_VERIFY -.-> ERR_REV["Revoked credential"]:::error
 
-  %% Trust anchors
-  STEP2 --> G
-  STEP5 --> G
+  %% Make resolver explicit for resolution steps
+  TS_VERIFY --> Res
+  Res --> IOTA_REG
+
+  %% Flow end / UX
+  DID_READY --> VERIFY_CHOICE
+  MINT --> USER_NOTIFY["User notified of verification result"]:::ui
+  USER_NOTIFY --> U
 ```
 
 ### Step-by-step (mapped to repo)
@@ -189,41 +197,47 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  START([Verification Request]) --> CHOOSE{{Choose Path}}
+    classDef userAction fill:#4CAF50,color:#ffffff,stroke:#2E7D32,stroke-width:2px
+    classDef frontend fill:#2196F3,color:#ffffff,stroke:#0D47A1,stroke-width:2px
+    classDef apiService fill:#FF9800,color:#ffffff,stroke:#E65100,stroke-width:2px
+    classDef external fill:#9C27B0,color:#ffffff,stroke:#6A1B9A,stroke-width:2px
+    classDef decision fill:#F44336,color:#ffffff,stroke:#B71C1C,stroke-width:2px
+    classDef error fill:#9E9E9E,color:#ffffff,stroke:#616161,stroke-width:2px
+
+  START([Verification Request]):::userAction --> CHOOSE{{Choose Path}}:::decision
 
   %% Path A: Self-sovereign Domain Linkage
-  CHOOSE -->|Domain Linkage (JWT)| A1[Fetch /.well-known/did-configuration.json]
-  A1 --> A2[Verify JWT signature]
-  A2 --> A3{issuer/subject DID match?}
-  A3 -->|yes| A4{origin matches LinkedDomains?}
-  A4 -->|yes| AOK([Verified])
-  A4 -->|no| AFAIL([Reject: origin mismatch])
-  A3 -->|no| AFAIL2([Reject: subject/issuer mismatch])
+  CHOOSE -->|Domain Linkage (JWT)| A1[Fetch /.well-known/did-configuration.json]:::apiService
+  A1 --> A2[Verify JWT signature]:::apiService
+  A2 --> A3{issuer/subject DID match?}:::decision
+  A3 -->|yes| A4{origin matches LinkedDomains?}:::decision
+  A4 -->|yes| AOK([Verified]):::apiService
+  A4 -->|no| AFAIL([Reject: origin mismatch]):::error
+  A3 -->|no| AFAIL2([Reject: subject/issuer mismatch]):::error
 
   %% Path B: Delegated (KERI ACDC)
-  CHOOSE -->|DID Linking (QVI)| B1[Obtain ACDC credential]
-  B1 --> B2[Validate structure]
-  B2 --> B3[Resolve issuer AID]
-  B3 --> B4[Verify signatures]
-  B4 --> B5[Traverse LE→QVI→GLEIF chain]
-  B5 --> B6{GLEIF root trusted?}
-  B6 -->|yes| BOK([Verified])
-  B6 -->|no| BFAIL([Reject: trust anchor mismatch])
+  CHOOSE -->|DID Linking (QVI)| B1[Obtain ACDC credential]:::apiService
+  B1 --> B2[Validate structure]:::apiService
+  B2 --> B3[Resolve issuer AID]:::apiService
+  B3 --> B4[Verify signatures]:::apiService
+  B4 --> B5[Traverse LE→QVI→GLEIF chain]:::apiService
+  B5 --> B6{GLEIF root trusted?}:::decision
+  B6 -->|yes| BOK([Verified]):::apiService
+  B6 -->|no| BFAIL([Reject: trust anchor mismatch]):::error
 
   %% Path C: ZKP / Selective Disclosure (optional)
-  CHOOSE -->|ZKP / SD| C1[Prover derives proof (e.g., BBS+, CL)]
-  C1 --> C2[Verifier checks proof vs schema & issuer registry]
-  C2 --> COK{Proof valid?}
-  COK -->|yes| COK2([Verified])
-  COK -->|no| CFAIL([Reject: proof invalid])
+  CHOOSE -->|ZKP / SD| C1[Prover derives proof (e.g., BBS+, CL)]:::apiService
+  C1 --> C2[Verifier checks proof vs schema & issuer registry]:::apiService
+  C2 --> COK{Proof valid?}:::decision
+  COK -->|yes| COK2([Verified]):::apiService
+  COK -->|no| CFAIL([Reject: proof invalid]):::error
 
   %% Path D: DIDComm (optional)
-  CHOOSE -->|DIDComm v2| D1[Establish secure channel]
-  D1 --> D2[Present VC / proof]
-  D2 --> DOK{Valid per chosen method?}
-  DOK -->|yes| DOK2([Verified])
-  DOK -->|no| DFAIL([Reject])
-```
+  CHOOSE -->|DIDComm v2| D1[Establish secure channel]:::apiService
+  D1 --> D2[Present VC / proof]:::apiService
+  D2 --> DOK{Valid per chosen method?}:::decision
+  DOK -->|yes| DOK2([Verified]):::apiService
+  DOK -->|no| DFAIL([Reject]):::error
 
 Notes for presentation:
 
