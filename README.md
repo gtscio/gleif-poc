@@ -109,7 +109,7 @@ docker exec -e VAULT_ADDR=http://127.0.0.1:8200 vault-dev vault secrets enable t
 docker exec -e VAULT_ADDR=http://127.0.0.1:8200 vault-dev vault write -f transit/keys/wallet-key
 
 # 2. Start backend
-cd twin-service && cp .env.vault .env && npm run start:vault &
+cd twin-service && cp .env.vault .env && npm run start:vault
 
 # 3. Generate DID + credentials
 cd did-management
@@ -118,17 +118,17 @@ node manage-did.js
 
 # 4. Start verification service
 export GLEIF_ROOT_AID=$(jq -r '.i' ../gleif-frontend/public/.well-known/keri/gleif-incept.json)
-cd ../verification-service && source venv/bin/activate && PORT=5001 python3 app.py &
+cd ../verification-service && source venv/bin/activate && PORT=5001 python3 app.py
 
 # 5. Start frontend
-cd ../gleif-frontend && npm run dev &
+cd ../gleif-frontend && npm run dev
 ```
 
 ### Without Vault
 
 ```bash
 # 1. Start backend
-cd twin-service && npm run dev &
+cd twin-service && npm run dev
 
 # 2. Generate DID + credentials
 cd did-management
@@ -137,10 +137,10 @@ node manage-did.js
 
 # 3. Start verification service
 export GLEIF_ROOT_AID=$(jq -r '.i' ../gleif-frontend/public/.well-known/keri/gleif-incept.json)
-cd ../verification-service && source venv/bin/activate && PORT=5001 python3 app.py &
+cd ../verification-service && source venv/bin/activate && PORT=5001 python3 app.py
 
 # 4. Start frontend
-cd ../gleif-frontend && npm run dev &
+cd ../gleif-frontend && npm run dev
 ```
 
 **Services:**
