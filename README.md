@@ -117,11 +117,13 @@ node manage-did.js
 ./generate-credentials.sh $(jq -r '.did' twin-wallet.json)
 
 # 4. Start verification service
-export GLEIF_ROOT_AID=$(jq -r '.i' ../gleif-frontend/public/.well-known/keri/gleif-incept.json)
-cd ../verification-service && source venv/bin/activate && PORT=5001 python3 app.py
+   cd verification-service \
+     && export GLEIF_ROOT_AID=$(jq -r '.i' ../gleif-frontend/public/.well-known/keri/gleif-incept.json) \
+     && source venv/bin/activate \
+     && PORT=5001 python3 app.py
 
 # 5. Start frontend
-cd ../gleif-frontend && npm run dev
+cd gleif-frontend && npm run dev
 ```
 
 ### Without Vault
@@ -136,11 +138,13 @@ node manage-did.js
 ./generate-credentials.sh $(jq -r '.did' twin-wallet.json)
 
 # 3. Start verification service
-export GLEIF_ROOT_AID=$(jq -r '.i' ../gleif-frontend/public/.well-known/keri/gleif-incept.json)
-cd ../verification-service && source venv/bin/activate && PORT=5001 python3 app.py
+   cd verification-service \
+     && export GLEIF_ROOT_AID=$(jq -r '.i' ../gleif-frontend/public/.well-known/keri/gleif-incept.json) \
+     && source venv/bin/activate \
+     && PORT=5001 python3 app.py
 
 # 4. Start frontend
-cd ../gleif-frontend && npm run dev
+cd gleif-frontend && npm run dev
 ```
 
 **Services:**
