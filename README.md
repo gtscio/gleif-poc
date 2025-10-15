@@ -207,7 +207,7 @@ flowchart LR
   START([Verification Request]):::userAction --> CHOOSE{{Choose Path}}:::decision
 
   %% Path A: Self-sovereign Domain Linkage
-    CHOOSE -->|Domain Linkage (JWT)| A1["Fetch /.well-known/did-configuration.json"]:::apiService
+    CHOOSE -->|Domain Linkage (JWT)| A1['Fetch /.well-known/did-configuration.json']:::apiService
     A1 --> A2[Verify JWT signature]:::apiService
   A2 --> A3{issuer/subject DID match?}:::decision
   A3 -->|yes| A4{origin matches LinkedDomains?}:::decision
