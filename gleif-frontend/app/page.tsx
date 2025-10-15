@@ -72,7 +72,14 @@ export default function Home() {
       });
     } catch (error) {
       setVerificationStatus("ERROR");
-      setReason("Failed to connect to the verifier service.");
+      let reason = "An unexpected error occurred during verification.";
+      if (error instanceof TypeError) {
+        reason =
+          "Network error: Unable to reach the verification service. Please check your internet connection.";
+      } else if (error instanceof Error) {
+        reason = `Error: ${error.message}`;
+      }
+      setReason(reason);
       console.log("Verification error:", (error as Error).message);
     } finally {
       setIsLoading(false);
@@ -185,7 +192,8 @@ export default function Home() {
             className={`mt-6 p-4 rounded-lg ${
               verificationStatus === "VERIFIED"
                 ? "bg-green-100 border border-green-400"
-                : verificationStatus === "NOT VERIFIED"
+                : verificationStatus === "NOT VERIFIED" ||
+                  verificationStatus === "ERROR"
                 ? "bg-red-100 border border-red-400"
                 : "bg-yellow-100 border border-yellow-400"
             }`}
@@ -303,9 +311,11 @@ export default function Home() {
                                     ({entity.type})
                                   </span>
                                 </div>
-                                <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                                  {entity.did || entity.domain}
-                                </code>
+                                <span className="inline-block overflow-x-auto whitespace-nowrap max-w-32">
+                                  <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                                    {entity.did || entity.domain}
+                                  </code>
+                                </span>
                               </div>
                             )
                           )}
