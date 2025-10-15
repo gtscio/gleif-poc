@@ -18,22 +18,21 @@ const didConfigFile = path.join(
   ".well-known",
   "did-configuration.json"
 );
-const credentialFile = path.join(
-  publicKeriDir,
-  "Edef456_placeholder_credential_said"
-);
-const icpFile = path.join(
-  publicKeriDir,
-  "icp",
-  "Eabc123_placeholder_legal_entity_aid"
-);
+const saidFile = path.join(publicKeriDir, "credential-said.txt");
+const icpDir = path.join(publicKeriDir, "icp");
 
 function credentialsExist() {
-  return (
-    fs.existsSync(credentialFile) &&
-    fs.existsSync(icpFile) &&
-    fs.existsSync(didConfigFile)
-  );
+  if (!fs.existsSync(saidFile) || !fs.existsSync(didConfigFile)) {
+    return false;
+  }
+
+  // Check if ICP directory exists and has at least one file
+  if (!fs.existsSync(icpDir)) {
+    return false;
+  }
+
+  const icpFiles = fs.readdirSync(icpDir);
+  return icpFiles.length > 0;
 }
 
 if (credentialsExist()) {

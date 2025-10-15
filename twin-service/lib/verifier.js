@@ -11,7 +11,7 @@ export async function verifyLinkage(iotaDid, verificationType) {
     // Validate DID format
     if (!iotaDid.startsWith("did:iota:")) {
       throw new Error(
-        "Invalid DID format. Please provide a valid IOTA DID starting with 'did:iota:'."
+        "The provided DID is invalid. Please ensure it starts with 'did:iota:' and is correctly formatted."
       );
     }
 
@@ -20,19 +20,22 @@ export async function verifyLinkage(iotaDid, verificationType) {
 
     let verificationResult;
     let linkedDid;
+    let linkedAid;
     let linkedDomain;
 
     if (verificationType === "did-linking") {
       console.log("Verifying via DID Linking (Issuer) Path...");
-      verificationResult = await verifyViaDidLinking(didDoc);
-      linkedDid = verificationResult.linkedDid;
+      verificationResult = await verifyViaDidLinking(didDoc, iotaDid);
+      linkedAid = verificationResult.linkedAid;
     } else if (verificationType === "domain-linkage") {
       console.log("Verifying via W3C Domain Linkage (Self-Hosted) Path...");
       verificationResult = await verifyViaDomainLinkage(didDoc);
       linkedDid = verificationResult.linkedDid;
       linkedDomain = verificationResult.domainOrigin;
     } else {
-      throw new Error("Invalid verification type specified.");
+      throw new Error(
+        "The verification method is not supported. Please choose either 'did-linking' or 'domain-linkage'."
+      );
     }
 
     if (verificationResult.status !== "VERIFIED") {
@@ -52,11 +55,16 @@ export async function verifyLinkage(iotaDid, verificationType) {
       body: JSON.stringify({ controller }),
     });
     if (!createDidResponse.ok) {
-      throw new Error("Failed to create DID");
+      throw new Error(
+        "Unable to create a verification attestation. Please try again later."
+      );
     }
     const createDidData = await createDidResponse.json();
     if (!createDidData.success) {
-      throw new Error(createDidData.error || "Failed to create DID");
+      throw new Error(
+        createDidData.error ||
+          "Unable to create a verification attestation. Please try again later."
+      );
     }
     const attestationDid = createDidData.did;
     const issuerAddress = createDidData.address;
@@ -64,7 +72,8 @@ export async function verifyLinkage(iotaDid, verificationType) {
     const metadata = {
       type: "verification-attestation",
       originalDid: iotaDid,
-      linkedDid: linkedDid,
+      ...(linkedDid ? { linkedDid } : {}),
+      ...(linkedAid ? { linkedAid } : {}),
       attestationDid: attestationDid.id,
       ...(linkedDomain ? { linkedDomain } : {}),
     };
@@ -92,8 +101,10 @@ export async function verifyLinkage(iotaDid, verificationType) {
             attestationDid: attestationDid.id,
             nftId: nft,
             issuerAddress,
-            linkedDid,
+            ...(linkedDid ? { linkedDid } : {}),
+            ...(linkedAid ? { linkedAid } : {}),
             ...(linkedDomain ? { linkedDomain } : {}),
+            verificationDetails: verificationResult.verificationDetails,
           };
         } else {
           console.log(
@@ -121,8 +132,10 @@ export async function verifyLinkage(iotaDid, verificationType) {
       originalDid: iotaDid,
       attestationDid: attestationDid.id,
       issuerAddress,
-      linkedDid,
+      ...(linkedDid ? { linkedDid } : {}),
+      ...(linkedAid ? { linkedAid } : {}),
       ...(linkedDomain ? { linkedDomain } : {}),
+      verificationDetails: verificationResult.verificationDetails,
     };
   } catch (error) {
     console.log("Error in verifyLinkage:", error);
@@ -131,24 +144,96 @@ export async function verifyLinkage(iotaDid, verificationType) {
 }
 
 // Logic for Path 1
-async function verifyViaDidLinking(didDoc) {
-  // The URL points to the frontend's main /.well-known/keri directory
-  const credentialUrl = `http://localhost:3000/.well-known/keri/Edef456_placeholder_credential_said`;
+async function verifyViaDidLinking(didDoc, iotaDid) {
+  // Fetch the credential dynamically from the frontend API
+  const credentialUrl = `http://localhost:3000/api/credential`;
   const response = await fetch(credentialUrl);
   if (!response.ok) {
     return {
       status: "NOT VERIFIED",
-      reason: `Failed to retrieve DID Linking credential (${response.status})`,
+      reason: `Unable to retrieve the required credential for verification. Please check your connection and try again.`,
     };
   }
   const credential = await response.json();
-  const reverseLinkDid = credential.a?.alsoKnownAs?.[0];
-  return reverseLinkDid === didDoc.id
-    ? { status: "VERIFIED", linkedDid: credential.i }
-    : {
-        status: "NOT VERIFIED",
-        reason: "DID Linking credential invalid.",
+
+  // Minimal DID ↔ credential binding: input DID must be present in credential.a.alsoKnownAs
+  const alsoKnownAs = credential?.a?.alsoKnownAs;
+  if (!Array.isArray(alsoKnownAs) || !alsoKnownAs.includes(iotaDid)) {
+    return {
+      status: "NOT VERIFIED",
+      reason:
+        "The provided DID is not linked to the credential. Please ensure the DID is correctly associated with the credential.",
+    };
+  }
+
+  // Call Python verification service
+  try {
+    const verifyResponse = await fetch("http://localhost:5001/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential, expected_did: iotaDid }),
+    });
+
+    if (!verifyResponse.ok) {
+      try {
+        const errorData = await verifyResponse.json();
+        const errorMessage =
+          errorData.error ||
+          errorData.message ||
+          `Verification service returned status ${verifyResponse.status}`;
+        return {
+          status: "NOT VERIFIED",
+          reason: errorMessage,
+        };
+      } catch (parseError) {
+        return {
+          status: "NOT VERIFIED",
+          reason: `Verification service is currently unavailable. Please try again later.`,
+        };
+      }
+    }
+
+    const verifyData = await verifyResponse.json();
+
+    if (verifyData.success && verifyData.verified) {
+      return {
+        status: "VERIFIED",
+        linkedAid: credential.i,
+        verificationDetails: {
+          credentialSaid: verifyData.details?.credential_said,
+          issuerAid: verifyData.details?.issuer_aid,
+          issuanceChain: verifyData.details?.issuance_chain,
+          gleifVerified: verifyData.details?.gleif_verified,
+          cryptographicStatus: "VERIFIED",
+          verificationSteps: [
+            "Credential structure validation",
+            "Issuer resolution and key state verification",
+            "Cryptographic signature validation",
+            "Issuance chain traversal",
+            "GLEIF root of trust verification",
+          ],
+        },
       };
+    } else {
+      return {
+        status: "NOT VERIFIED",
+        reason:
+          verifyData.error ||
+          "The credential verification failed. Please check the credential details and try again.",
+        verificationDetails: {
+          cryptographicStatus: "FAILED",
+          failureReason:
+            verifyData.error ||
+            "The credential verification failed. Please check the credential details and try again.",
+        },
+      };
+    }
+  } catch (error) {
+    return {
+      status: "NOT VERIFIED",
+      reason: `Unable to connect to the verification service. Please check your network connection and try again.`,
+    };
+  }
 }
 
 // Logic for Path 2
@@ -165,7 +250,8 @@ async function verifyViaDomainLinkage(didDoc) {
   if (!linkedDomainService) {
     return {
       status: "NOT VERIFIED",
-      reason: "LinkedDomains service not found on DID document.",
+      reason:
+        "The DID document does not contain domain linkage information. Please ensure the DID is properly configured for domain verification.",
     };
   }
 
@@ -176,7 +262,8 @@ async function verifyViaDomainLinkage(didDoc) {
   if (typeof domainOrigin !== "string") {
     return {
       status: "NOT VERIFIED",
-      reason: "LinkedDomains service is missing a valid endpoint.",
+      reason:
+        "The domain linkage configuration is incomplete. Please check the DID document setup.",
     };
   }
 
@@ -186,7 +273,7 @@ async function verifyViaDomainLinkage(didDoc) {
   if (!response.ok) {
     return {
       status: "NOT VERIFIED",
-      reason: `Failed to fetch did-configuration.json (${response.status})`,
+      reason: `Unable to retrieve domain configuration. Please ensure the domain is properly configured for verification.`,
     };
   }
 
@@ -198,7 +285,8 @@ async function verifyViaDomainLinkage(didDoc) {
   if (linkedDids.length === 0) {
     return {
       status: "NOT VERIFIED",
-      reason: "No linked_dids entries found in did-configuration.json.",
+      reason:
+        "The domain configuration does not contain any linked DIDs. Please verify the domain setup.",
     };
   }
 
@@ -206,7 +294,8 @@ async function verifyViaDomainLinkage(didDoc) {
   if (typeof jwt !== "string") {
     return {
       status: "NOT VERIFIED",
-      reason: "Invalid linked_dids entry detected.",
+      reason:
+        "The domain configuration contains invalid data. Please check the domain setup.",
     };
   }
 
@@ -218,7 +307,8 @@ async function verifyViaDomainLinkage(didDoc) {
     if (!verifiableCredential) {
       return {
         status: "NOT VERIFIED",
-        reason: "Domain Linkage credential verification failed.",
+        reason:
+          "The domain linkage credential could not be verified. Please ensure the domain is properly configured.",
       };
     }
 
@@ -237,14 +327,16 @@ async function verifyViaDomainLinkage(didDoc) {
     if (issuerDid !== didDoc.id || subjectDid !== didDoc.id) {
       return {
         status: "NOT VERIFIED",
-        reason: "Domain Linkage credential does not match requested DID.",
+        reason:
+          "The domain linkage credential does not match the provided DID. Please verify the DID and domain association.",
       };
     }
 
     if (subjectOrigin !== normalizedOrigin) {
       return {
         status: "NOT VERIFIED",
-        reason: "Domain Linkage credential origin mismatch.",
+        reason:
+          "The domain linkage credential origin does not match the expected domain. Please verify the domain configuration.",
       };
     }
 
@@ -252,12 +344,33 @@ async function verifyViaDomainLinkage(didDoc) {
       status: "VERIFIED",
       linkedDid: issuerDid,
       domainOrigin: normalizedOrigin,
+      verificationDetails: {
+        credentialSaid: verifiableCredential.id,
+        issuerDid: issuerDid,
+        subjectDid: subjectDid,
+        subjectOrigin: subjectOrigin,
+        cryptographicStatus: "VERIFIED",
+        verificationSteps: [
+          "Domain linkage credential retrieval",
+          "JWT verification and parsing",
+          "Issuer and subject DID validation",
+          "Domain origin verification",
+        ],
+        trustChain: [
+          { level: "Domain Owner", did: issuerDid, type: "Self-Issued" },
+          {
+            level: "Domain Authority",
+            domain: normalizedOrigin,
+            type: "Verified",
+          },
+        ],
+      },
     };
   } catch (error) {
     console.log("Domain linkage verification error:", error);
     return {
       status: "NOT VERIFIED",
-      reason: `Domain Linkage credential verification error: ${error.message}`,
+      reason: `An error occurred during domain linkage verification. Please try again or contact support if the issue persists.`,
     };
   }
 }

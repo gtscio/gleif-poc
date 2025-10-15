@@ -17,9 +17,13 @@ import {
 /**
  * Creates a new DID document.
  * @param controllerIdentity - Optional identity for the controller
+ * @param domainOrigin - Optional domain origin to add LinkedDomains service
  * @returns Promise resolving to the created DID document and associated address
  */
-export async function createDIDDocument(controllerIdentity?: string): Promise<{
+export async function createDIDDocument(
+  controllerIdentity?: string,
+  domainOrigin?: string
+): Promise<{
   document: IDidDocument;
   address: string;
   controllerIdentity: string;
@@ -142,6 +146,28 @@ export async function createDIDDocument(controllerIdentity?: string): Promise<{
       defaultVerificationMethodId || "<none>"
     );
 
+    // Add LinkedDomains service if domainOrigin is provided
+    if (domainOrigin) {
+      console.log(
+        `🌐 Adding LinkedDomains service for origin: ${domainOrigin}`
+      );
+      try {
+        await upsertLinkedDomainsService(
+          controllerIdentity,
+          resolvedDocument.id,
+          domainOrigin
+        );
+        console.log(
+          "✅ LinkedDomains service added successfully during DID creation"
+        );
+      } catch (error) {
+        console.error(
+          "⚠️ Failed to add LinkedDomains service during DID creation:",
+          error
+        );
+      }
+    }
+
     return {
       document: resolvedDocument,
       address: addresses[0],
@@ -188,12 +214,23 @@ export async function upsertLinkedDomainsService(
   const serviceId = "linked-domain";
   const fullServiceId = `${did}#${serviceId}`;
 
+  // Pre-check for existing LinkedDomains service and only remove when present
   try {
-    await identityConnector.removeService(controllerIdentity, fullServiceId);
+    const current = await resolveDIDDocument(did);
+    const services = Array.isArray(current?.service) ? current.service : [];
+    const hasLinked = services.some((s: any) => {
+      if (!s) return false;
+      const sid = typeof s.id === "string" ? s.id : "";
+      const types = Array.isArray(s.type) ? s.type : [s.type];
+      return sid.endsWith(`#${serviceId}`) && types.includes("LinkedDomains");
+    });
+    if (hasLinked) {
+      await identityConnector.removeService(controllerIdentity, fullServiceId);
+    }
   } catch (error) {
-    // Ignore missing service errors
+    // Downgrade NotFound to debug
     if (!(error instanceof Error && /notFound/i.test(error.message))) {
-      console.log("⚠️ Failed to remove existing linked domain service:", error);
+      console.log("⚠️ LinkedDomains pre-check/remove warning:", error);
     }
   }
 

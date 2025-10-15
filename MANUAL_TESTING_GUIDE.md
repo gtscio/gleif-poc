@@ -2,17 +2,18 @@
 
 ## Overview
 
-This comprehensive testing guide covers the complete end-to-end workflow for the GLEIF POC system, which demonstrates vLEI ↔ TWIN ID linkage verification. The system consists of four main components that must be tested together for full functionality.
+This comprehensive testing guide covers the complete end-to-end workflow for the GLEIF POC system, which implements real keripy signing and verification operations with actual cryptographic signatures and KERI database validation for vLEI ↔ TWIN ID linkage verification. The system consists of four main components that must be tested together for full functionality.
 
 ### System Components
 
 1. **GLEIF POC Frontend** (`gleif-frontend/`): Next.js web application for user interaction
 2. **Twin Service** (`twin-service/`): Backend service for DID and NFT operations
-3. **DID Management** (`did-management/`): Scripts for identity creation and credential generation
+3. **Verification Service** (`verification-service/`): Python Flask service for KERI ACDC cryptographic verification
+4. **DID Management** (`did-management/`): Scripts for identity creation and credential generation
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 18+
 - Docker (for HashiCorp Vault)
 - Basic understanding of DIDs and blockchain concepts
 - Access to IOTA testnet
@@ -33,6 +34,7 @@ This comprehensive testing guide covers the complete end-to-end workflow for the
 ### ✅ Checklist: Vault Setup (Production-like Testing)
 
 **Start HashiCorp Vault:**
+
 ```bash
 docker run -d --name vault-dev -p 8200:8200 \
   -e VAULT_DEV_ROOT_TOKEN_ID=root \
@@ -40,6 +42,7 @@ docker run -d --name vault-dev -p 8200:8200 \
 ```
 
 **Configure Vault environment:**
+
 ```bash
 cd twin-service
 cp .env.vault .env
@@ -48,16 +51,19 @@ cp .env.vault .env
 #### Enable Transit Secrets Engine
 
 **Enable transit secrets engine:**
+
 ```bash
 curl -X POST -H "X-Vault-Token: root" http://localhost:8200/v1/sys/mounts/transit -d '{"type": "transit"}'
 ```
 
 **Create wallet key:**
+
 ```bash
 curl -X POST -H "X-Vault-Token: root" http://localhost:8200/v1/transit/keys/wallet-key
 ```
 
 **Expected Results:**
+
 - Vault UI accessible at http://localhost:8200
 - Vault token: `root`
 - No errors in Vault startup logs
@@ -65,34 +71,54 @@ curl -X POST -H "X-Vault-Token: root" http://localhost:8200/v1/transit/keys/wall
 ### ✅ Checklist: Start All Services
 
 **Start Twin Service with Vault:**
+
 ```bash
 cd twin-service
 npm run start:vault
 ```
 
 **Expected Results:**
+
 - Service starts on http://localhost:3001
 - Console shows: "Twin service with Vault started on port 3001"
 - No connection errors to Vault
 
+**Start Verification Service:**
+
+```bash
+cd verification-service
+export GLEIF_ROOT_AID=$(jq -r '.i' ../gleif-frontend/public/.well-known/keri/gleif-incept.json)
+source venv/bin/activate && PORT=5001 python3 app.py
+```
+
+**Expected Results:**
+
+- Service starts on http://localhost:5001
+- Console shows: "Starting KERI ACDC Verification Service on port 5001"
+- Health check endpoint responds: `curl http://localhost:5001/health`
+
 **Start Frontend:**
+
 ```bash
 cd gleif-frontend
 npm run dev
 ```
 
 **Expected Results:**
+
 - Frontend accessible at http://localhost:3000
 - No build errors
 - Console shows successful compilation
 
 **Verify Services Status:**
+
 ```bash
 # Check running processes
-ps aux | grep -E "(node|npm)"
+ps aux | grep -E "(node|npm|python3)"
 
 # Test service endpoints
 curl http://localhost:3001/create-did
+curl http://localhost:5001/health
 curl http://localhost:3000/api/verify -X POST -H "Content-Type: application/json" -d '{"did":"test"}'
 ```
 
@@ -103,17 +129,20 @@ curl http://localhost:3000/api/verify -X POST -H "Content-Type: application/json
 ### ✅ Checklist: Create New TWIN DID
 
 **Execute DID creation:**
+
 ```bash
 cd did-management
 node manage-did.js
 ```
 
 **Expected Results:**
+
 - Console output: "✅ New TWIN ID created successfully! DID: did:iota:testnet:0x..."
 - `twin-wallet.json` file created with DID information
 - DID format: `did:iota:testnet:<objectId>` (e.g., `did:iota:testnet:0xe682944593311be353aa6e5d4cfb62041e407fc66c43586b31f87fe87be4309f`)
 
 **Verify DID Creation:**
+
 ```bash
 # Check wallet file
 cat twin-wallet.json
@@ -123,12 +152,16 @@ curl http://localhost:3001/resolve-did/$(jq -r '.did' twin-wallet.json)
 ```
 
 **Expected API Response:**
+
 ```json
 {
   "success": true,
   "didDocument": {
     "id": "did:iota:testnet:0x...",
-    "alsoKnownAs": ["did:webs:localhost:3000:Eabc123_placeholder_legal_entity_aid", "did:web:localhost:3000"]
+    "alsoKnownAs": [
+      "did:webs:localhost:3000:<real_legal_entity_aid>",
+      "did:webs:localhost:3000"
+    ]
   }
 }
 ```
@@ -136,6 +169,7 @@ curl http://localhost:3001/resolve-did/$(jq -r '.did' twin-wallet.json)
 ### ✅ Checklist: Generate Credentials
 
 **Generate KERI credentials:**
+
 ```bash
 cd did-management
 chmod +x generate-credentials.sh
@@ -145,16 +179,20 @@ chmod +x generate-credentials.sh
 **Expected Results:**
 
 - Files created in `gleif-frontend/public/.well-known/keri/`:
-  - `icp/Eabc123_placeholder_legal_entity_aid`
-  - `Edef456_placeholder_credential_said`
+  - `icp/<legal_entity_aid>` (dynamically generated)
+  - `legal-entity-credential.json` (ACDC for Legal Entity)
+  - `qvi-credential.json` (ACDC for QVI → used to resolve issuer)
+  - `gleif-incept.json` and `qvi-incept.json` (inception events)
 - DID Configuration file created at `gleif-frontend/public/.well-known/did-configuration.json`
-- Console output: "✅ Placeholder cryptographic files created"
+- Console output: "✅ Real cryptographic credentials generated successfully"
 
 **Verify Credential Files:**
 
 ```bash
 ls -la ../gleif-frontend/public/.well-known/keri/
-cat ../gleif-frontend/public/.well-known/keri/Edef456_placeholder_credential_said
+cat ../gleif-frontend/public/.well-known/keri/legal-entity-credential.json
+cat ../gleif-frontend/public/.well-known/keri/qvi-credential.json
+cat ../gleif-frontend/public/.well-known/keri/gleif-incept.json
 cat ../gleif-frontend/public/.well-known/did-configuration.json
 ```
 
@@ -175,27 +213,54 @@ npm run build
 
 - Build completes successfully
 - `scripts/ensure-credentials.js` executes automatically (via `prebuild` script)
-- If credentials don't exist, script generates DID and KERI files
-- KERI files present in `public/.well-known/keri/`
+- If credentials don't exist, script generates DID and real KERI cryptographic files
+- KERI files present in `public/.well-known/keri/` with dynamically generated SAIDs
 
 **Verify Credential Content:**
 
 ```bash
-# Check ICP file (Legal Entity)
-cat public/.well-known/keri/icp/Eabc123_placeholder_legal_entity_aid
+# Check ICP file (Legal Entity) - dynamically generated
+cat public/.well-known/keri/icp/$(ls public/.well-known/keri/icp/)
 
-# Check credential file
-cat public/.well-known/keri/Edef456_placeholder_credential_said
+# Check credential file - dynamically generated SAID
+cat public/.well-known/keri/$(ls public/.well-known/keri/ | grep -v icp)
 ```
 
 **Expected Credential Structure:**
 
-- ICP file contains legal entity inception configuration
-- Credential file contains ACDC with `alsoKnownAs` linking to TWIN DID
+- ICP file contains legal entity inception configuration with real cryptographic signatures
+- Credential file contains ACDC with `alsoKnownAs` linking to TWIN DID, using real SAIDs
 
 ---
 
-## 4. Verification Flow Testing
+## 4. Real Cryptographic Operations
+
+### Understanding Real Cryptographic Implementation
+
+The system now uses real keripy signing and verification operations with actual cryptographic signatures and KERI database validation instead of any simulated components:
+
+- **SAID Generation**: Credentials use Self-Addressing Identifiers (SAIDs) computed from content using SHA-256 hashing
+- **Digital Signatures**: All credentials are signed using Ed25519 digital signatures through real keripy operations
+- **KERI Protocol**: Full KERI (Key Event Receipt Infrastructure) implementation for identity management with database validation
+- **ACDC Credentials**: Authenticated Chain Data Containers with cryptographic provenance and real signature chains
+
+### Key Cryptographic Components:
+
+1. **Legal Entity AID**: Dynamically generated identifier for the legal entity (GLEIF)
+2. **Credential SAID**: Content-addressed identifier for the vLEI credential
+3. **Signature Chains**: Cryptographic proof linking credentials to issuing authorities
+4. **Verification Operations**: Real-time validation of signatures and SAID integrity
+
+### Testing Real Cryptography:
+
+- [ ] Verify SAIDs are computed correctly from credential content using real keripy operations
+- [ ] Confirm digital signatures are valid and verifiable through actual cryptographic validation
+- [ ] Test that credential tampering invalidates verification using real signature checking
+- [ ] Ensure signature chains maintain cryptographic integrity with KERI database validation
+
+---
+
+## 5. Verification Flow Testing
 
 ### ✅ Checklist: End-to-End Verification Test
 
@@ -226,7 +291,47 @@ cat public/.well-known/keri/Edef456_placeholder_credential_said
 
 ### ✅ Checklist: API Verification Testing
 
-**Test verification endpoint:**
+**Test Verification Service health check:**
+
+```bash
+curl http://localhost:5001/health
+```
+
+**Expected Response:**
+
+```json
+{
+  "status": "healthy",
+  "service": "keri-acdc-verifier"
+}
+```
+
+**Test KERI credential verification endpoint:**
+
+```bash
+jq -c '{credential: .}' ../gleif-frontend/public/.well-known/keri/legal-entity-credential.json > /tmp/payload.json
+curl -X POST http://localhost:5001/verify \
+  -H "Content-Type: application/json" \
+  -d @/tmp/payload.json
+```
+
+**Expected Response:**
+
+```json
+{
+  "success": true,
+  "verified": true,
+  "message": "Credential verified successfully",
+  "details": {
+    "credential_said": "<real_credential_said>",
+    "issuer_aid": "<real_legal_entity_aid>",
+    "issuance_chain": [...],
+    "gleif_verified": true
+  }
+}
+```
+
+**Test Frontend verification endpoint:**
 
 ```bash
 curl -X POST http://localhost:3000/api/verify \
@@ -245,9 +350,17 @@ curl -X POST http://localhost:3000/api/verify \
 }
 ```
 
+**Verify Real Cryptographic Operations:**
+
+- [ ] Confirm verification service logs show real keripy signing and verification operations (signature verification, SAID validation, etc.)
+- [ ] Check that verification service performs actual KERI ACDC validation with real SAIDs and cryptographic signatures
+- [ ] Verify that verification fails if credential signatures are invalid or SAIDs don't match using real cryptographic validation
+- [ ] Confirm that the system uses real cryptographic primitives and KERI database validation, not any simulated components
+- [ ] Test that credential tampering is detected and rejected through actual cryptographic verification
+
 ---
 
-## 5. Frontend UI Testing
+## 6. Frontend UI Testing
 
 ### ✅ Checklist: UI Functionality Test
 
@@ -278,11 +391,12 @@ curl -X POST http://localhost:3000/api/verify \
 
 ---
 
-## 6. IOTA Explorer Link Testing
+## 7. IOTA Explorer Link Testing
 
 ### ✅ Checklist: Explorer Integration Test
 
 **Test DID Links:**
+
 ```bash
 # Generate explorer URL for DID
 node -e "
@@ -293,34 +407,40 @@ console.log('DID Explorer URL:', generateExplorerLink(did));
 ```
 
 **Expected URL Format:**
+
 ```
 https://explorer.iota.org/object/<objectId>?network=testnet
 ```
 
 **Test NFT Links:**
+
 - Extract NFT ID from verification response
 - Verify URL format: `https://explorer.iota.org/nft/<nftId>?network=testnet`
 
 **Test Address Links:**
+
 - Extract issuer address from verification response
 - Verify URL format: `https://explorer.iota.org/addr/<address>?network=testnet`
 
 **Test Transaction Links:**
+
 - Monitor for transaction IDs during NFT minting
 - Verify URL format: `https://explorer.iota.org/tx/<txId>?network=testnet`
 
 ---
 
-## 7. API Endpoint Testing
+## 8. API Endpoint Testing
 
 ### ✅ Checklist: Twin Service API Tests
 
 **Test DID Creation:**
+
 ```bash
 curl -X POST http://localhost:3001/create-did
 ```
 
 **Expected Response:**
+
 ```json
 {
   "success": true,
@@ -332,22 +452,28 @@ curl -X POST http://localhost:3001/create-did
 ```
 
 **Test DID Resolution:**
+
 ```bash
 curl http://localhost:3001/resolve-did/did:iota:testnet:0xe682944593311be353aa6e5d4cfb62041e407fc66c43586b31f87fe87be4309f
 ```
 
 **Expected Response:**
+
 ```json
 {
   "success": true,
   "didDocument": {
     "id": "did:iota:testnet:0x...",
-    "alsoKnownAs": ["did:webs:localhost:3000:Eabc123_placeholder_legal_entity_aid", "did:web:localhost:3000"]
+    "alsoKnownAs": [
+      "did:webs:localhost:3000:<real_legal_entity_aid>",
+      "did:webs:localhost:3000"
+    ]
   }
 }
 ```
 
 **Test NFT Minting:**
+
 ```bash
 curl -X POST http://localhost:3001/mint-nft \
   -H "Content-Type: application/json" \
@@ -359,6 +485,7 @@ curl -X POST http://localhost:3001/mint-nft \
 ```
 
 **Expected Response:**
+
 ```json
 {
   "success": true,
@@ -373,6 +500,7 @@ curl -X POST http://localhost:3001/mint-nft \
 ### ✅ Checklist: Frontend API Tests
 
 **Test Verification Endpoint:**
+
 ```bash
 # Valid DID
 curl -X POST http://localhost:3000/api/verify \
@@ -392,21 +520,24 @@ curl -X POST http://localhost:3000/api/verify \
 
 ---
 
-## 8. Error Scenario Testing
+## 9. Error Scenario Testing
 
 ### ✅ Checklist: Service Unavailability Tests
 
 **Test Twin Service Down:**
+
 1. Stop twin-service: `pkill -f "twin-service"`
 2. Attempt verification via frontend
 3. **Expected:** ERROR status with connection failure message
 
 **Test Vault Unavailable:**
+
 1. Stop Vault container: `docker stop vault-dev`
 2. Attempt DID creation
 3. **Expected:** Vault connection error
 
 **Test Frontend Build Issues:**
+
 1. Delete KERI files: `rm -rf gleif-frontend/public/.well-known/keri/`
 2. Attempt frontend build: `npm run build`
 3. **Expected:** Build fails with missing credential files
@@ -414,6 +545,7 @@ curl -X POST http://localhost:3000/api/verify \
 ### ✅ Checklist: Invalid Input Tests
 
 **Test Invalid DID Formats:**
+
 - Empty string
 - Random text
 - Malformed DID (missing parts)
@@ -424,11 +556,13 @@ curl -X POST http://localhost:3000/api/verify \
 ### ✅ Checklist: Network Error Tests
 
 **Test IOTA Network Issues:**
+
 1. Modify `config.env` with invalid node URL
 2. Attempt DID operations
 3. **Expected:** Network connection errors
 
 **Test Explorer Network Mismatch:**
+
 1. Set `IOTA_NETWORK=mainnet` in environment
 2. Use testnet DID for verification
 3. **Expected:** Explorer links point to wrong network
@@ -436,15 +570,18 @@ curl -X POST http://localhost:3000/api/verify \
 ### ✅ Checklist: Security Tests
 
 **Test Vault Authentication:**
+
 1. Modify Vault token in `.env`
 2. Attempt secure operations
 3. **Expected:** Authentication failures
 
 **Test CORS Issues:**
+
 1. Access API from different origin
 2. **Expected:** CORS headers properly set
 
 **Test Transit Engine Functionality:**
+
 1. Verify transit engine is enabled: `curl -H "X-Vault-Token: root" http://localhost:8200/v1/sys/mounts`
 2. Test key creation: `curl -X POST -H "X-Vault-Token: root" http://localhost:8200/v1/transit/keys/test-key`
 3. Test encryption: `curl -X POST -H "X-Vault-Token: root" http://localhost:8200/v1/transit/encrypt/wallet-key -d '{"plaintext": "dGVzdCBkYXRh"}'`
@@ -452,24 +589,28 @@ curl -X POST http://localhost:3000/api/verify \
 
 ---
 
-## Complete End-to-End Testing Workflow
+## 10. Complete End-to-End Testing Workflow
 
 ### ✅ Master Checklist: Full System Test
 
 **Phase 1: Environment Setup**
+
 - [ ] Install all dependencies
 - [ ] Configure environment files
 - [ ] Start HashiCorp Vault
 - [ ] Start Twin Service with Vault
+- [ ] Start Verification Service
 - [ ] Start Frontend application
 
 **Phase 2: Identity Creation**
+
 - [ ] Create new TWIN DID via API
 - [ ] Generate KERI credentials
 - [ ] Link DID with vLEI credentials
 - [ ] Verify DID document structure
 
 **Phase 3: Verification Testing**
+
 - [ ] Test frontend UI functionality
 - [ ] Perform verification via web interface
 - [ ] Verify API endpoint responses
@@ -477,12 +618,14 @@ curl -X POST http://localhost:3000/api/verify \
 - [ ] Confirm blockchain artifacts
 
 **Phase 4: Error Handling**
+
 - [ ] Test invalid inputs
 - [ ] Test service failures
 - [ ] Test network issues
 - [ ] Verify error messages
 
 **Phase 5: Performance Testing**
+
 - [ ] Test concurrent verifications
 - [ ] Monitor response times
 - [ ] Check memory usage
@@ -492,7 +635,7 @@ curl -X POST http://localhost:3000/api/verify \
 
 - [ ] All services start without errors
 - [ ] DID creation succeeds with valid IOTA testnet transactions
-- [ ] Credential generation creates proper KERI files
+- [ ] Credential generation creates proper KERI files with real SAIDs, cryptographic signatures, and keripy signing/verification operations
 - [ ] Verification returns VERIFIED status for valid DIDs
 - [ ] All explorer links functional and point to correct artifacts
 - [ ] Frontend UI responsive and user-friendly
@@ -502,6 +645,7 @@ curl -X POST http://localhost:3000/api/verify \
 ### Troubleshooting Common Issues
 
 **Port Conflicts:**
+
 ```bash
 # Find conflicting processes
 lsof -i :3000
@@ -513,6 +657,7 @@ kill -9 <PID>
 ```
 
 **Vault Connection Issues:**
+
 ```bash
 # Check Vault status
 docker logs vault-dev
@@ -522,6 +667,7 @@ curl http://localhost:8200/v1/sys/health
 ```
 
 **Build Failures:**
+
 ```bash
 # Clear Next.js cache
 cd gleif-frontend
@@ -531,13 +677,17 @@ npm run build
 ```
 
 **DID Resolution Failures:**
+
 - Verify IOTA testnet connectivity
 - Check Vault configuration
 - Confirm DID format validity
+- Ensure real keripy signing and verification operations are properly implemented with actual cryptographic signatures and KERI database validation (not any simulated components)
 
 **Transit Engine Issues:**
+
 - **Symptom:** Transit engine operations fail with "path not found"
 - **Solution:** Enable transit engine and create required keys
+
   ```bash
   # Enable transit
   curl -X POST -H "X-Vault-Token: root" http://localhost:8200/v1/sys/mounts/transit -d '{"type": "transit"}'
@@ -548,7 +698,7 @@ npm run build
 
 ---
 
-## Testing Checklist Summary
+## 11. Testing Checklist Summary
 
 - [ ] Service startup procedures completed
 - [ ] DID creation and management tested
@@ -560,7 +710,7 @@ npm run build
 - [ ] Error scenarios handled properly
 - [ ] End-to-end workflow successful
 
-**Test Completion Date:** ________
-**Tester Name:** ________
-**Environment:** ________ (dev/staging/prod)
-**Test Result:** ________ (PASS/FAIL)
+**Test Completion Date:** **\_\_\_\_**
+**Tester Name:** **\_\_\_\_**
+**Environment:** **\_\_\_\_** (dev/staging/prod)
+**Test Result:** **\_\_\_\_** (PASS/FAIL)

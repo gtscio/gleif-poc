@@ -1,10 +1,10 @@
 {
-  "did": "did:iota:testnet:0xe682944593311be353aa6e5d4cfb62041e407fc66c43586b31f87fe87be4309f",
-  "address": "0x5dc15d47a8d4220485b7d87495006af4a88b92df781bec61f678f5d1482efedc",
-  "controllerIdentity": "did-1760344090489-bzsefty3ul",
-  "verificationMethodId": "did:iota:testnet:0xe682944593311be353aa6e5d4cfb62041e407fc66c43586b31f87fe87be4309f#key-1",
+  "did": "did:iota:testnet:0x39b4b10b0e6e965409452cc4002853db13d34dc2ad3b03c0493ed34bebd6f969",
+  "address": "0xb0e4932e140cf53554913ed761fe2719f1ebbfc01573a59da5c2304ab3dd2c37",
+  "controllerIdentity": "did-1760521886352-tod3f9xqg38",
+  "verificationMethodId": "did:iota:testnet:0x39b4b10b0e6e965409452cc4002853db13d34dc2ad3b03c0493ed34bebd6f969#key-1",
   "alsoKnownAs": [
     "did:webs:localhost:3000:Eabc123_placeholder_legal_entity_aid",
-    "did:web:localhost:3000"
+    "did:webs:localhost:3000"
   ]
 }

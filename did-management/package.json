@@ -5,7 +5,9 @@
   "type": "module",
   "main": "manage-did.js",
   "scripts": {
-    "start": "node manage-did.js"
+    "start": "node manage-did.js",
+    "generate-credentials": "python3 generate-credentials.py"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "devDependencies": {}
 }

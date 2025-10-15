@@ -57,12 +57,12 @@ jspm_packages/
 .yarn-integrity
 
 # dotenv environment variables file
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.vault
+*.env
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+*.env.vault
 
 # parcel-bundler cache
 .cache
@@ -120,7 +120,23 @@ packages/*/node_modules/
 packages/*/dist/
 packages/*/.next/
 packages/*/coverage/
-config.env
-identity.env
-verification-method.env
-wallet.env
+config*.env
+identity*.env
+verification-method*.env
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# KERI generated files
+gleif-frontend/public/.well-known/keri/
+wallet*.env
+verification-service/db/
+gleif-frontend/public/.well-known/did-configuration.json
