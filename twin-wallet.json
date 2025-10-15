@@ -4,6 +4,6 @@
   "controllerIdentity": "did-1759940656555-3w6s9x1whas",
   "alsoKnownAs": [
     "did:webs:localhost:3000:Eabc123_placeholder_legal_entity_aid",
-    "did:web:localhost:3000"
+    "did:webs:localhost:3000"
   ]
 }

@@ -177,6 +177,7 @@ def verify_credential():
     Expects JSON payload with:
     - credential: The ACDC credential object
     - issuer_aid: (optional) The issuer AID if not in credential
+    - expected_did: (optional) DID that must appear in credential.a.alsoKnownAs
     """
     try:
         data = request.get_json()
@@ -188,6 +189,7 @@ def verify_credential():
 
         credential = data['credential']
         issuer_aid = data.get('issuer_aid')
+        expected_did = data.get('expected_did')
 
         logger.info(f"Starting verification for credential: {credential.get('d', 'unknown')}")
 
@@ -195,7 +197,7 @@ def verify_credential():
         refresh_verifier_state()
 
         # Perform full verification
-        result = verify_acdc_credential(credential, issuer_aid)
+        result = verify_acdc_credential(credential, issuer_aid, expected_did)
 
         if result['verified']:
             logger.info("Credential verification successful")
@@ -221,7 +223,7 @@ def verify_credential():
             "error": f"Internal server error: {str(e)}"
         }), 500
 
-def verify_acdc_credential(credential, issuer_aid=None):
+def verify_acdc_credential(credential, issuer_aid=None, expected_did=None):
     """
     Perform full cryptographic verification of KERI ACDC credential
 
@@ -242,6 +244,16 @@ def verify_acdc_credential(credential, issuer_aid=None):
                 'reason': f"Invalid credential structure: {validation_result['reason']}",
                 'step': 'structure_validation'
             }
+
+        # Step 1b: Optional DID ↔ credential binding (defense-in-depth)
+        if expected_did:
+            also_known_as = credential.get('a', {}).get('alsoKnownAs')
+            if not isinstance(also_known_as, list) or expected_did not in also_known_as:
+                return {
+                    'verified': False,
+                    'reason': 'Expected DID not present in credential.a.alsoKnownAs',
+                    'step': 'did_binding'
+                }
 
         # Step 2: Resolve credential and issuer
         logger.info("Step 2: Resolving credential and issuer using keripy database queries and AID validation")

@@ -25,7 +25,7 @@ export async function verifyLinkage(iotaDid, verificationType) {
 
     if (verificationType === "did-linking") {
       console.log("Verifying via DID Linking (Issuer) Path...");
-      verificationResult = await verifyViaDidLinking(didDoc);
+      verificationResult = await verifyViaDidLinking(didDoc, iotaDid);
       linkedAid = verificationResult.linkedAid;
     } else if (verificationType === "domain-linkage") {
       console.log("Verifying via W3C Domain Linkage (Self-Hosted) Path...");
@@ -137,7 +137,7 @@ export async function verifyLinkage(iotaDid, verificationType) {
 }
 
 // Logic for Path 1
-async function verifyViaDidLinking(didDoc) {
+async function verifyViaDidLinking(didDoc, iotaDid) {
   // Fetch the credential dynamically from the frontend API
   const credentialUrl = `http://localhost:3000/api/credential`;
   const response = await fetch(credentialUrl);
@@ -149,12 +149,22 @@ async function verifyViaDidLinking(didDoc) {
   }
   const credential = await response.json();
 
+  // Minimal DID ↔ credential binding: input DID must be present in credential.a.alsoKnownAs
+  const alsoKnownAs = credential?.a?.alsoKnownAs;
+  if (!Array.isArray(alsoKnownAs) || !alsoKnownAs.includes(iotaDid)) {
+    return {
+      status: "NOT VERIFIED",
+      reason:
+        "Input DID not present in credential.a.alsoKnownAs (DID-linking requires binding)",
+    };
+  }
+
   // Call Python verification service
   try {
     const verifyResponse = await fetch("http://localhost:5001/verify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ credential }),
+      body: JSON.stringify({ credential, expected_did: iotaDid }),
     });
 
     if (!verifyResponse.ok) {

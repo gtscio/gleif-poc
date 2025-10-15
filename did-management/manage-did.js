@@ -97,7 +97,7 @@ async function updateIdentityWithVLEILink() {
   // Persist alsoKnownAs locally for reference
   walletData.alsoKnownAs = [
     "did:webs:localhost:3000:Eabc123_placeholder_legal_entity_aid",
-    "did:web:localhost:3000",
+    "did:webs:localhost:3000",
   ];
   await writeFile("./twin-wallet.json", JSON.stringify(walletData, null, 2));
 

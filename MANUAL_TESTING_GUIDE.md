@@ -160,7 +160,7 @@ curl http://localhost:3001/resolve-did/$(jq -r '.did' twin-wallet.json)
     "id": "did:iota:testnet:0x...",
     "alsoKnownAs": [
       "did:webs:localhost:3000:<real_legal_entity_aid>",
-      "did:web:localhost:3000"
+      "did:webs:localhost:3000"
     ]
   }
 }
@@ -466,7 +466,7 @@ curl http://localhost:3001/resolve-did/did:iota:testnet:0xe682944593311be353aa6e
     "id": "did:iota:testnet:0x...",
     "alsoKnownAs": [
       "did:webs:localhost:3000:<real_legal_entity_aid>",
-      "did:web:localhost:3000"
+      "did:webs:localhost:3000"
     ]
   }
 }

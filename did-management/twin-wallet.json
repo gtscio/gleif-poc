@@ -5,6 +5,6 @@
   "verificationMethodId": "did:iota:testnet:0x39b4b10b0e6e965409452cc4002853db13d34dc2ad3b03c0493ed34bebd6f969#key-1",
   "alsoKnownAs": [
     "did:webs:localhost:3000:Eabc123_placeholder_legal_entity_aid",
-    "did:web:localhost:3000"
+    "did:webs:localhost:3000"
   ]
 }

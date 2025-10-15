@@ -5,7 +5,7 @@
 Verifies organizational identity by linking GLEIF vLEI (`did:webs`) to TWIN ID (`did:iota`) using real KERI cryptographic verification. Two paths:
 
 - **DID Linking (QVI-based):** QVI issues KERI ACDC credential linking `did:webs` ↔ `did:iota`. Trust anchored in QVI.
-- **Domain Linkage (self-hosted):** Entity hosts a signed DID configuration at `/.well-known/did-configuration.json`.
+- **Domain Linkage (self-hosted):** Entity hosts a signed DID configuration at `/.well-known/did-configuration.json`. _Note: This is a self-issued proof where the issuer and subject DIDs are the same (the entity proves control of their own domain)._
 
 **Status:** KERI ops implemented. **Missing for production:** GLEIF QVI accreditation checks, real-time revocation.
 
