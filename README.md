@@ -216,7 +216,8 @@ flowchart LR
   A3 -->|no| AFAIL2([Reject: subject/issuer mismatch]):::error
 
   %% Path B: Delegated (KERI ACDC)
-  CHOOSE -->|DID Linking (QVI)| B1[Obtain ACDC credential]:::apiService
+  CHOOSE -->|DID Linking (QVI)| B0[Fetch KERI credential]:::apiService
+  B0 --> B1[Obtain ACDC credential]:::apiService
   B1 --> B2[Validate structure]:::apiService
   B2 --> B3[Resolve issuer AID]:::apiService
   B3 --> B4[Verify signatures]:::apiService
