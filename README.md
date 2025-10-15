@@ -157,7 +157,7 @@ flowchart LR
 - **Credential generation & publishing**: `did-management/generate-credentials.sh` produces KERI artifacts (`gleif-incept.json`, `qvi-credential.json`, `habitats.json`) and publishes Domain Linkage (`.well-known/did-configuration.json`) via `gleif-frontend`. `verification-service` seeds/refreshes from these files on each request.
 - **Third‑party verification request**: Verifier calls `gleif-frontend` `POST /api/verify` → proxies to `twin-service` `POST /verify` with `did` and `verificationType`.
 - **Domain Linkage path (self‑hosted)**: Resolve `LinkedDomains` service from DID doc; fetch `.well-known/did-configuration.json`; verify JWT; check issuer/subject/origin.
-- **DID Linking path (delegated/QVI)**: `gleif-frontend` fetches KERI credential; `twin-service` calls `verification-service` `POST /verify`. KERI steps: structure → issuer resolution → signature validation → issuance chain (LE→QVI→GLEIF) → GLEIF root check.
+- **DID Linking path (delegated/QVI)**: `twin-service` fetches KERI credential; `twin-service` calls `verification-service` `POST /verify`. KERI steps: structure → issuer resolution → signature validation → issuance chain (LE→QVI→GLEIF) → GLEIF root check.
 - **Attestation on IOTA (both paths)**: `twin-service` mints an Attestation DID and NFT with immutable DID doc + verification details.
 - **Interop bridges (optional)**: Verified result can mint OIDC tokens or SAML assertions for SSO integration (future extension).
 
@@ -207,7 +207,7 @@ flowchart LR
   START([Verification Request]):::userAction --> CHOOSE{{Choose Path}}:::decision
 
   %% Path A: Self-sovereign Domain Linkage
-  CHOOSE -->|Domain Linkage (JWT)| A1[Fetch /.well-known/did-configuration.json]:::apiService
+  CHOOSE -->|Domain Linkage (JWT)| A1["Fetch /.well-known/did-configuration.json"]:::apiService
   A1 --> A2[Verify JWT signature]:::apiService
   A2 --> A3{issuer/subject DID match?}:::decision
   A3 -->|yes| A4{origin matches LinkedDomains?}:::decision
