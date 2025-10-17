@@ -1,22 +1,63 @@
 # KERI ACDC Verification Service
 
+## Overview
+
+This service is a key component of our Proof of Concept (POC) for GLEIF's verifiable Legal Entity Identifier (vLEI) system. It acts as a trusted verifier that checks the authenticity and validity of digital credentials issued to legal entities. In simple terms, it ensures that when a company presents a credential proving its identity and qualifications, that credential is genuine and comes from authorized sources within the GLEIF ecosystem.
+
+The service replicates the verification process used by "Sally," a reference verifier in GLEIF's vLEI workflow. It validates credentials through a chain of trust, starting from the individual legal entity up to GLEIF itself, using advanced cryptographic methods to prevent fraud and ensure data integrity.
+
 A Python Flask service that performs full cryptographic verification of KERI ACDC (Authentic Chained Data Container) credentials, replicating the verification logic of the "Sally" verifier in the GLEIF vLEI workflow.
 
-## Features
+## Key Features
 
-- **Full Chain Verification**: Validates the complete issuance chain from Legal Entity → QVI → GLEIF
-- **Cryptographic Validation**: Verifies all signatures in the KERI event log
-- **GLEIF Root Trust**: Confirms credentials trace back to the trusted GLEIF AID
-- **REST API**: Simple HTTP endpoints for credential verification
-- **Comprehensive Logging**: Detailed logs for debugging and monitoring
+- **Complete Trust Chain Validation**: Checks the entire path of credential issuance from the individual legal entity through Qualified vLEI Issuers (QVI) to GLEIF
+- **Digital Signature Verification**: Ensures all cryptographic signatures are valid and authentic
+- **GLEIF Trust Anchor**: Verifies that credentials ultimately come from GLEIF's trusted root authority
+- **Web API**: Provides simple web endpoints for checking credentials
+- **Detailed Logging**: Records comprehensive information for troubleshooting and monitoring
 
-## API Endpoints
+## How It Works
 
-### POST /verify
+The verification process follows a clear chain of trust:
 
-Verify a KERI ACDC credential.
+```
+┌─────────────────┐
+│ Legal Entity    │
+│ presents        │
+│ credential      │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ QVI (Qualified  │
+│ vLEI Issuer)    │
+│ verifies &      │
+│ endorses        │
+└─────────┬───────┘
+          │
+          ▼
+┌─────────────────┐
+│ GLEIF Root     │
+│ Authority      │
+│ confirms       │
+│ ultimate trust │
+└─────────┬───────┘
+          │
+          ▼
+    ┌─────────────┐
+    │ ✅ VALIDATED │
+    │ Credential   │
+    │ is authentic │
+    └─────────────┘
+```
 
-**Request Body:**
+### API Endpoints
+
+#### POST /verify
+
+Checks if a digital credential is valid and trustworthy.
+
+**What to Send:**
 
 ```json
 {
@@ -36,7 +77,7 @@ Verify a KERI ACDC credential.
 }
 ```
 
-**Response (Success):**
+**Successful Response:**
 
 ```json
 {
@@ -69,7 +110,7 @@ Verify a KERI ACDC credential.
 }
 ```
 
-**Response (Failure):**
+**Failed Response:**
 
 ```json
 {
@@ -80,19 +121,23 @@ Verify a KERI ACDC credential.
 }
 ```
 
-### GET /health
+#### GET /health
 
-Health check endpoint.
+Basic health check to confirm the service is running.
 
-## Installation
+## Getting Started
 
-1. Install dependencies:
+### Quick Setup
+
+1. **Install Required Software:**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Configure environment variables in `.env`:
+2. **Set Up Configuration:**
+
+Create a `.env` file with these settings:
 
 ```bash
 PORT=5001
@@ -100,47 +145,48 @@ GLEIF_ROOT_AID=GLEIF_ROOT_AID_SIMULATED
 LOG_LEVEL=INFO
 ```
 
-### Configuration Details
+**Configuration Options:**
+- **PORT**: Which network port the service uses (default: 5000)
+- **GLEIF_ROOT_AID**: The main GLEIF identifier for trust verification. Use `GLEIF_ROOT_AID_SIMULATED` for testing, or the real GLEIF ID for production
+- **LOG_LEVEL**: How much detail to log (DEBUG, INFO, WARNING, ERROR)
 
-- **PORT**: The port number the service listens on (default: 5000)
-- **GLEIF_ROOT_AID**: The root AID for GLEIF trust anchor. Use `GLEIF_ROOT_AID_SIMULATED` for testing or the actual GLEIF AID for production
-- **LOG_LEVEL**: Logging verbosity level (DEBUG, INFO, WARNING, ERROR)
+3. **Load GLEIF Trust Settings:**
 
-3. Set the trusted GLEIF root AID from the generated inception file for this run:
+For real verification, set the GLEIF root identifier from the generated setup file:
 
 ```bash
 export GLEIF_ROOT_AID=$(jq -r '.i' ../gleif-frontend/public/.well-known/keri/gleif-incept.json)
 ```
 
-4. Run the service:
+4. **Start the Service:**
 
 ```bash
 python app.py
 ```
 
-## Database Setup
+## Data Storage
 
-The verification service uses a persistent KERI database to store issuer key states. The database is automatically initialized on startup in the `./db` directory relative to the service root.
+The service maintains a database to keep track of issuer information and verification history. This database is set up automatically when the service starts, in a `db` folder within the service directory.
 
-- **Automatic Initialization**: The service creates the database directory and initializes the Baser database when started.
-- **Persistence**: The database persists across restarts, allowing the service to maintain verification state.
-- **Location**: Database files are stored in `verification-service/db/`.
+**Key Points:**
+- **Auto-Setup**: No manual configuration needed - the database creates itself on first run
+- **Persistent Storage**: Information is saved between service restarts
+- **File Location**: All data files are stored in `verification-service/db/`
 
-For production deployments, ensure the database directory has appropriate permissions and consider backup strategies for the database files.
+**For Production Use:** Make sure the database folder has proper security permissions and set up regular backups of the data files.
 
-## Real vs Simulated Operations
+## Testing and Production Modes
 
-The verification service supports both simulated and real KERI operations:
+The service can operate in different environments:
 
-- **Simulated Mode**: Deprecated. This service now verifies real credentials generated for each test run.
-- **Real Mode** (current behavior):
-  - Set `GLEIF_ROOT_AID` from the generated `gleif-incept.json` (`.i` field) before starting.
-  - The service loads inception events for GLEIF, QVI, and Legal Entity. Issuer discovery uses the generated `qvi-credential.json` to determine the QVI AID that authorized the Legal Entity credential.
-  - For deterministic tests, restart this service after credentials are generated so it boots with the fresh artifacts.
+**Current Setup (Real Verification):**
+- Uses actual GLEIF credentials generated for each test session
+- Loads real issuer information for GLEIF, QVI (Qualified vLEI Issuer), and legal entities
+- Finds the correct QVI issuer by checking the generated credential files
 
-### Credential Format
+**Credential Structure:**
 
-Generated credentials store the signature as a single object at `p.d` (not an array), for example:
+Credentials include a digital signature for verification:
 
 ```json
 {
@@ -153,36 +199,42 @@ Generated credentials store the signature as a single object at `p.d` (not an ar
 }
 ```
 
-### Recommended Test Flow
+**Testing Workflow:**
 
-1. Generate credentials (writes files under `gleif-frontend/public/.well-known/keri/`).
-2. Export `GLEIF_ROOT_AID` from `gleif-incept.json`.
-3. Restart the verification service to load the new artifacts.
-4. POST the generated `legal-entity-credential.json` to `/verify`.
+1. Create test credentials (saved to `gleif-frontend/public/.well-known/keri/`)
+2. Set the GLEIF root identifier from the setup file
+3. Restart the verification service to load new credentials
+4. Send the legal entity credential to the `/verify` endpoint for checking
 
-To switch from simulated to real operations:
+**For Production Deployment:**
 
-1. Set `GLEIF_ROOT_AID` to the actual GLEIF root AID
-2. Ensure the KERI database contains real issuer credentials and key states
-3. Populate the database with the full issuance chain credentials
+1. Use the official GLEIF root identifier
+2. Load real issuer credentials and keys into the database
+3. Import the complete chain of trust credentials
 
-## Verification Process
+## Detailed Verification Steps
 
-The service performs verification in 5 steps:
+The service checks credentials through a 5-step process:
 
-1. **Structure Validation**: Ensures the credential has required ACDC fields
-2. **Resolution**: Resolves the credential and its issuer AID
-3. **Signature Validation**: Verifies cryptographic signatures in the event log
-4. **Chain Traversal**: Follows the issuance chain (Legal Entity → QVI → GLEIF)
-5. **GLEIF Verification**: Confirms the root issuer is the trusted GLEIF AID
+```
+1. Check Format → 2. Find Issuer → 3. Verify Signatures → 4. Follow Chain → 5. Confirm GLEIF Trust
+```
 
-## Dependencies
+1. **Format Check**: Makes sure the credential has all required fields and is properly structured
+2. **Issuer Lookup**: Finds and validates the entity that issued the credential
+3. **Signature Check**: Confirms all digital signatures are authentic and valid
+4. **Chain Verification**: Traces the credential's path from the legal entity through QVI to GLEIF
+5. **GLEIF Confirmation**: Ensures the credential ultimately comes from GLEIF's trusted root authority
 
-- Flask: Web framework
-- keri: KERI protocol implementation
-- python-dotenv: Environment variable management
-- requests: HTTP client for external calls
+## Technical Requirements
 
-## Integration
+The service relies on these main components:
 
-This service is designed to be called by the Node.js backend for credential verification. It can be deployed independently and scaled as needed.
+- **Flask**: Web framework for handling API requests
+- **KERI**: Protocol implementation for secure identity and credential management
+- **python-dotenv**: Manages configuration settings from environment files
+- **requests**: Handles external web service calls
+
+## System Integration
+
+This verification service works with the Node.js backend system for credential checking. It can run as a separate service and be scaled independently based on verification demand.
